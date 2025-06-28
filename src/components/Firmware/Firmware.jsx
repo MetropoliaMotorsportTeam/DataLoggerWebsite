@@ -1,75 +1,68 @@
 import React, { useState } from 'react';
-import { uploadFirmware } from '../../hooks/firmWareApiHook';
-
+import { uploadFirmware } from '../../hooks/firmwareApiHook';
 
 function Firmware() {
   const [selectedFile, setSelectedFile] = useState(null);
+  const [configFile, setConfigFile] = useState(null); // New state for config file
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
+  const [deviceId, setDeviceId] = useState('');
   
-  // MOCK DATA, FIRMWARE VERSIONS
-  const firmwareVersions = [
-    { version: 'v2.3.1', date: '2025-04-15', status: 'current', notes: 'Improved power management, fixed sensor calibration bug' },
-    { version: 'v2.2.0', date: '2025-03-02', status: 'stable', notes: 'Added support for new temperature sensors' },
-    { version: 'v2.1.5', date: '2025-02-10', status: 'legacy', notes: 'Emergency fix for logging issue during high RPM' },
-    { version: 'v2.1.0', date: '2025-01-20', status: 'legacy', notes: 'Enhanced data sampling rate, UI improvements' },
-  ];
-  
-  // Handle file selection
+  // Handle firmware file selection
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     setSelectedFile(file);
     setUploadStatus(null);
     setUploadProgress(0);
-    console.log("SELECTED FILE: ", file)
+    console.log("SELECTED FILE: ", file);
+  };
+  
+  // Handle config file selection
+  const handleConfigFileChange = (event) => {
+    const file = event.target.files[0];
+    setConfigFile(file);
+    console.log("SELECTED CONFIG FILE: ", file);
   };
 
-
-
-  // Simulate upload to AWS backend
-
-  const handleUpload = async ()  => {
-    if (!selectedFile) 
-    return;
-    const response = await uploadFirmware(selectedFile);
-
-    console.log("wtf is this response: ", response);
-
-
-    if(response) {
-       setUploading(true);
+  // Upload to AWS backend
+  const handleUpload = async () => {
+    if (!selectedFile || !deviceId) {
+      setUploadStatus('error');
+      return;
+    }
+    
+    setUploading(true);
     setUploadProgress(0);
     setUploadStatus('uploading');
     
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 95) {
-          clearInterval(interval);
-          return 95;
-        }
-        return prev + 5;
-      });
-    }, 300);
+    const response = await uploadFirmware(selectedFile, deviceId, configFile); // Pass config file if available
+    console.log("Upload response:", response);
 
-    // Simulate upload completion after 3 seconds
-    setTimeout(() => {
-      clearInterval(interval);
-      setUploadProgress(100);
+    if (response && response.success) {
+      // Simulate upload progress
+      const interval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 95) {
+            clearInterval(interval);
+            return 95;
+          }
+          return prev + 5;
+        });
+      }, 300);
+
+      // Simulate upload completion after 3 seconds
+      setTimeout(() => {
+        clearInterval(interval);
+        setUploadProgress(100);
+        setUploading(false);
+        setUploadStatus('success');
+      }, 3000);
+    } else {
       setUploading(false);
-      setUploadStatus('success');
-      // In a real app, you would make an API call to your AWS backend here
-    }, 3000);
-  };2
-  }
-
-
-
-
-
-
-
+      setUploadStatus('error');
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -86,15 +79,18 @@ function Firmware() {
         <h2 className="text-xl font-semibold mb-4">Upload Firmware</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* File Selector - first two columns */}
-          <div className="md:col-span-2">
-            <div className={`border-2 border-dashed rounded-lg p-6 text-center relative ${
+          {/* File Selector - first column */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Firmware File (Required)
+            </label>
+            <div className={`border-2 border-dashed rounded-lg p-4 text-center relative ${
               selectedFile ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
             }`}>
               {selectedFile ? (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <div className="flex items-center justify-center">
-                    <svg className="w-8 h-8 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"></path>
                     </svg>
                   </div>
@@ -104,23 +100,26 @@ function Firmware() {
                   </p>
                   <button 
                     className="text-xs text-red-600 hover:text-red-800"
-                    onClick={() => setSelectedFile(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFile(null);
+                    }}
                   >
                     Remove
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <div className="flex items-center justify-center">
-                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   </div>
                   <p className="text-sm font-medium text-gray-700">
-                    Drag binary file here or click to select
+                    Click to select firmware
                   </p>
                   <p className="text-xs text-gray-500">
-                    Supported formats: .bin
+                    .bin, .hex, .fw
                   </p>
                 </div>
               )}
@@ -131,148 +130,132 @@ function Firmware() {
                 accept=".bin,.hex,.fw"
               />
             </div>
+          </div>
 
-            {uploadStatus === 'uploading' && (
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Uploading...</span>
-                  <span>{uploadProgress}%</span>
+          {/* Config File Selector - second column */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Config File (Optional)
+            </label>
+            <div className={`border-2 border-dashed rounded-lg p-4 text-center relative ${
+              configFile ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-gray-400'
+            }`}>
+              {configFile ? (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-green-700">{configFile.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {(configFile.size / 1024).toFixed(2)} KB
+                  </p>
+                  <button 
+                    className="text-xs text-red-600 hover:text-red-800"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfigFile(null);
+                    }}
+                  >
+                    Remove
+                  </button>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full" 
-                    style={{ width: `${uploadProgress}%` }}
-                  ></div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-center">
+                    <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-gray-700">
+                    Click to select config file
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    .dbc, .json, .yaml
+                  </p>
                 </div>
-              </div>
-            )}
-
-            {uploadStatus === 'success' && (
-              <div className="mt-4 p-3 bg-green-50 text-green-800 rounded-md flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Firmware uploaded successfully! Ready to deploy.
-              </div>
-            )}
+              )}
+              <input
+                type="file"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={handleConfigFileChange}
+                accept=".dbc,.json,.yaml,.yml,.xml"
+              />
+            </div>
           </div>
           
           {/* Form inputs - third column */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Firmware Version
-              </label>
-              <input 
-                type="text" 
-                className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                placeholder="e.g. v2.4.0"
-              />
-              
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <input 
-                type="text" 
-                className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                placeholder="e.g. stable, current, legacy "
-              />
-              
-            </div>
-
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Device ID
+            </label>
+            <input 
+              type="text" 
+              className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+              placeholder="Enter CanEdge3 device ID"
+              value={deviceId}
+              onChange={(e) => setDeviceId(e.target.value)}
+              required
+            />
             
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Release Notes
-              </label>
-              <textarea 
-                className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                rows="3"
-                placeholder="Describe changes in this firmware version"
-              ></textarea>
+            <div className="mt-4">
+              <button
+                onClick={handleUpload}
+                disabled={!selectedFile || !deviceId || uploading}
+                className={`w-full py-2 px-4 rounded-md font-medium ${
+                  !selectedFile || !deviceId || uploading
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                {uploading ? 'Uploading...' : 'Upload Firmware'}
+              </button>
+              <p className="text-xs text-gray-500 mt-1">
+                Config file is optional and will be applied during firmware update.
+              </p>
             </div>
-
-            <button
-              onClick={handleUpload}
-              disabled={!selectedFile || uploading}
-              className={`w-full py-2 px-4 rounded-md font-medium ${
-                !selectedFile || uploading
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}
-            >
-              {uploading ? 'Uploading...' : 'Upload Firmware'}
-            </button>
           </div>
         </div>
-      </div>
-      
 
-      
-      {/* Firmware History */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <h2 className="text-xl font-semibold mb-4">Firmware Version History</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Version
-                </th>
-                <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Release Date
-                </th>
-                <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Release Notes
-                </th>
-                <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {firmwareVersions.map((firmware, index) => (
-                <tr key={index} className={firmware.status === 'current' ? 'bg-blue-50' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                    {firmware.version}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {firmware.date}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      firmware.status === 'current'
-                        ? 'bg-blue-100 text-blue-800'
-                        : firmware.status === 'stable'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {firmware.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                    {firmware.notes}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button className="text-blue-600 hover:text-blue-900 mr-4">Download</button>
-                    <button className="text-gray-600 hover:text-gray-900">Details</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* Upload status indicators */}
+        {uploadStatus === 'uploading' && (
+          <div className="mt-4 space-y-2">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Uploading...</span>
+              <span>{uploadProgress}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full" 
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
+        {uploadStatus === 'success' && (
+          <div className="mt-4 p-3 bg-green-50 text-green-800 rounded-md flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            {configFile ? 
+              'Firmware and configuration uploaded successfully!' : 
+              'Firmware uploaded successfully! Ready to deploy.'}
+          </div>
+        )}
+
+        {uploadStatus === 'error' && (
+          <div className="mt-4 p-3 bg-red-50 text-red-800 rounded-md flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            Upload failed. Please try again.
+          </div>
+        )}
       </div>
     </div>
   );
-
 }
 
 export default Firmware;
