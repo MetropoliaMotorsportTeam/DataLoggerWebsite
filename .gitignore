@@ -1,0 +1,56 @@
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+vite-error.log*
+
+# Environment variables
+.env
+.env.*.local
+.env.local
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Mac system files
+*.DS_Store
+
+# Optional: Dependency directory for pnpm
+.pnpm/
+
+# Optional: Bun
+.bun/
+
+# Optional: Coverage output from testing
+coverage/
+
+# Optional: Cache files
+.cache/
+.vite/
+*.tsbuildinfo
+
+# Optional: NPM
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Optional: Local testing
+*.local
+*.log
+*.tmp
+
