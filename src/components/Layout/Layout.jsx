@@ -7,7 +7,7 @@ function Layout({ children }) {
   const navItems = [
     { name: 'Dashboard', path: '/' },
     { name: 'Firmware', path: '/firmware' },
-    { name: 'Data Analysis', path: '/data' },
+    { name: 'Data Monitoring', path: '/data' },
     { name: 'Car Settings', path: '/settings' }
   ];
 

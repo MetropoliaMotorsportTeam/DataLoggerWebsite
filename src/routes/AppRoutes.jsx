@@ -1,8 +1,8 @@
 import { Routes, Route } from 'react-router-dom';
 import HomePage from '../pages/HomePage';
 import FirmwarePage from '../pages/FirmwarePage';
-import AboutPage from '../pages/AboutPage';
-import ContactPage from '../pages/ContactPage';
+import DataPage from '../pages/DataPage';
+import SettingsPage from '../pages/SettingsPage';
 
 
 function AppRoutes() {
@@ -10,8 +10,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/firmware" element={<FirmwarePage />} />
-      <Route path="/about" element={<AboutPage />} />
-      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/data" element={<DataPage />} />
+      <Route path="/settings" element={<SettingsPage />} />
     
 
     </Routes>
