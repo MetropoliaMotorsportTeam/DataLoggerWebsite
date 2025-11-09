@@ -12,48 +12,59 @@ function Layout({ children }) {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-black text-gray-200" style={{ fontFamily: "'Roboto Mono', monospace" }}>
       {/* Header */}
-      <header className="bg-gradient-to-r from-blue-800 to-blue-600 shadow-xl">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <Link to="/" className="flex items-center space-x-3">
-            <div className="bg-white p-1 rounded">
-              <svg className="h-8 w-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12.5 1.5c-6.3 0-11 4.7-11 11 0 6.3 4.7 11 11 11s11-4.7 11-11c0-6.3-4.7-11-11-11zm-1 16h-5v-2h5v2zm7-4h-12v-2h12v2zm0-4h-12v-2h12v2z"></path>
-              </svg>
+      <header className="bg-gray-900/70 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo and Team Name */}
+            <Link to="/" className="flex items-center space-x-3">
+              <div className="bg-gray-800 p-2 rounded-lg">
+                <svg className="h-6 w-6 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                  <path d="M2 17l10 5 10-5"></path>
+                  <path d="M2 12l10 5 10-5"></path>
+                </svg>
+              </div>
+              <span className="font-bold text-xl text-white hidden sm:block">Metropolia Motorsport</span>
+            </Link>
+            
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex items-center space-x-2">
+              {navItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    location.pathname === item.path
+                      ? 'text-white bg-blue-600/50'
+                      : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Mobile Menu Placeholder (optional) */}
+            <div className="md:hidden">
+              {/* You can add a hamburger menu icon here if needed */}
             </div>
-            <span className="font-bold text-xl text-white">Metropolia Motorsport</span>
-          </Link>
-          
-          <nav className="hidden md:flex space-x-6">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`text-sm font-medium px-2 py-1 rounded transition-colors ${
-                  location.pathname === item.path
-                    ? 'text-white bg-blue-700'
-                    : 'text-blue-100 hover:text-white hover:bg-blue-700/50'
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </nav>
+          </div>
         </div>
       </header>
 
-      {/* Mobile Nav */}
-      <div className="md:hidden bg-white shadow-md">
-        <div className="container mx-auto px-4 py-2 flex overflow-x-auto space-x-4">
+      {/* Mobile Nav Bar */}
+      <div className="md:hidden bg-gray-900/50 border-b border-gray-700">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 flex overflow-x-auto space-x-2">
           {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className={`whitespace-nowrap text-sm px-3 py-1 rounded-full transition-colors ${
+              className={`flex-shrink-0 text-sm px-3 py-1.5 rounded-md transition-colors ${
                 location.pathname === item.path
                   ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                  : 'text-gray-300 bg-gray-800/60 hover:bg-gray-700/60'
               }`}
             >
               {item.name}
@@ -62,25 +73,22 @@ function Layout({ children }) {
         </div>
       </div>
 
-      {/* Main content */}
-      <main className="flex-1 container mx-auto px-4 py-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          {children}
-        </div>
+      {/* Main content - No extra styling to allow pages to be full-bleed */}
+      <main className="flex-1 w-full">
+        {children}
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white py-6">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="mb-4 md:mb-0">
-              <div className="font-bold text-lg">Metropolia Motorsport</div>
-              <p className="text-gray-300 text-sm">Manage and visualize data.</p>
-            </div>
-            <div className="flex space-x-4">
-              <a href="#" className="text-gray-300 hover:text-white transition-colors">Documentation</a>
-
-            </div>
+      <footer className="bg-gray-900 border-t border-gray-700">
+        <div className="max-w-7xl mx-auto py-6 px-4 md:flex md:items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-sm text-gray-400">&copy; {new Date().getFullYear()} Metropolia Motorsport. All rights reserved.</p>
+          </div>
+          <div className="mt-4 flex justify-center space-x-6 md:mt-0">
+            <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              Docs
+            </a>
+            
           </div>
         </div>
       </footer>
