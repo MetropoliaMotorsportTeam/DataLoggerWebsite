@@ -43,7 +43,10 @@ function SignalSelector({ signals, selectedSignal, setSelectedSignal }) {
       </button>
       {isOpen && (
         <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto custom-scrollbar">
-          <ul className="py-1">{signals.map((signal) => (<li key={signal} onClick={() => { setSelectedSignal(signal); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-200 hover:bg-blue-600 hover:text-white cursor-pointer">{signal}</li>))}</ul>
+          <ul className="py-1">
+            <li onClick={() => { setSelectedSignal(''); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-400 hover:bg-gray-700 hover:text-white cursor-pointer">-- Stop Plotting --</li>
+            {signals.map((signal) => (<li key={signal} onClick={() => { setSelectedSignal(signal); setIsOpen(false); }} className="px-4 py-2 text-sm text-gray-200 hover:bg-blue-600 hover:text-white cursor-pointer">{signal}</li>))}
+          </ul>
         </div>
       )}
     </div>
@@ -80,7 +83,7 @@ const LinePlot = forwardRef(({ signalName }, ref) => {
 
   const draw = useCallback(() => {
     if (!elements.g) return;
-    const { g, data, xScale, yScale, linePath, areaPath, yAxis, yGrid, innerWidth, innerHeight, yLabel, minText, maxText, liveTracker } = elements;
+    const { data, xScale, yScale, linePath, areaPath, yAxis, yGrid, innerWidth, innerHeight, yLabel, minText, maxText, liveTracker } = elements;
     const config = getSignalConfig(signalName);
 
     if (data.length === 0) {
@@ -105,23 +108,20 @@ const LinePlot = forwardRef(({ signalName }, ref) => {
     maxText.text(`Max: ${yDomain[1].toFixed(2)}`);
     
     const lastValue = data[data.length - 1];
-    // Add a smooth transition to the live tracker
     const tTracker = d3.transition().duration(100).ease(d3.easeCubicOut);
     liveTracker.select('circle').transition(tTracker).attr('cy', yScale(lastValue));
     liveTracker.select('text').transition(tTracker).attr('y', yScale(lastValue)).text(lastValue.toFixed(2));
 
-    // UPGRADE: Use a more visually stable curve interpolator
     const lineGenerator = d3.line().x((d, i) => xScale(i)).y(d => yScale(d)).curve(d3.curveMonotoneX);
     const areaGenerator = d3.area().x((d, i) => xScale(i)).y0(innerHeight).y1(d => yScale(d)).curve(d3.curveMonotoneX);
 
     linePath.datum(data).attr('d', lineGenerator).attr('stroke', config.color);
     areaPath.datum(data).attr('d', areaGenerator).attr('fill', `url(#grad-${config.color})`);
 
-    // UPGRADE: Use a more natural easing function for a smoother feel
     const transition = d3.transition().ease(d3.easeCubicOut).duration(100);
     linePath.attr('transform', `translate(${xScale(0) - xScale(1)}, 0)`).transition(transition).attr('transform', 'translate(0,0)');
     areaPath.attr('transform', `translate(${xScale(0) - xScale(1)}, 0)`).transition(transition).attr('transform', 'translate(0,0)');
-  }, [signalName]);
+  }, [signalName, elements]);
 
   useEffect(() => {
     const initChart = () => {
@@ -170,10 +170,17 @@ const LinePlot = forwardRef(({ signalName }, ref) => {
     };
 
     initChart();
+    const currentWrapper = wrapperRef.current;
     const resizeObserver = new ResizeObserver(initChart);
-    resizeObserver.observe(wrapperRef.current);
-    return () => resizeObserver.disconnect();
-  }, []);
+    if (currentWrapper) {
+      resizeObserver.observe(currentWrapper);
+    }
+    return () => {
+      if (currentWrapper) {
+        resizeObserver.unobserve(currentWrapper);
+      }
+    };
+  }, [elements]);
 
   useEffect(() => {
     draw();
@@ -195,10 +202,15 @@ function DataMonitoring() {
   const plotRef = useRef(null);
   const selectedSignalRef = useRef(selectedSignal);
 
-  useEffect(() => { selectedSignalRef.current = selectedSignal; }, [selectedSignal]);
+  // Keep the ref updated with the latest selectedSignal
+  useEffect(() => {
+    selectedSignalRef.current = selectedSignal;
+  }, [selectedSignal]);
 
+  // This effect manages the socket connection and data handling
   useEffect(() => {
     const socket = io('http://localhost:3000');
+
     socket.on('connect', () => setSocketStatus('Connected'));
     socket.on('disconnect', () => setSocketStatus('Disconnected'));
 
@@ -206,39 +218,46 @@ function DataMonitoring() {
       if (!newData.decodedFrames?.[0]?.decoded) return;
       const decoded = newData.decodedFrames[0].decoded;
 
-      // Discover new signals (low-frequency operation)
-      const newSignalsFound = Object.keys(decoded).some(sig => !availableSignals.includes(sig));
-      if (newSignalsFound) {
-        setAvailableSignals(prev => {
-          const combined = new Set([...prev, ...Object.keys(decoded)]);
-          const sorted = Array.from(combined).sort();
-          if (sorted.length > prev.length) {
-            if (!selectedSignalRef.current) setSelectedSignal(sorted[0]);
-            return sorted;
+      // Discover new signals and update the available list
+      setAvailableSignals(prev => {
+        const currentSignals = new Set(prev);
+        const newSignals = Object.keys(decoded).filter(sig => !currentSignals.has(sig));
+        
+        if (newSignals.length > 0) {
+          const combined = [...prev, ...newSignals].sort();
+          // If no signal is selected yet, automatically select the first one
+          if (!selectedSignalRef.current) {
+            setSelectedSignal(combined[0]);
           }
-          return prev;
-        });
-      }
+          return combined;
+        }
+        return prev;
+      });
 
-      // High-frequency operation: ONLY process the selected signal
-      const signalValue = decoded[selectedSignalRef.current];
-      if (typeof signalValue === 'number') {
-        // Inject data directly into the chart component
+      // Update the plot and stat card for the currently selected signal
+      const currentSignal = selectedSignalRef.current;
+      if (currentSignal && typeof decoded[currentSignal] === 'number') {
+        const signalValue = decoded[currentSignal];
         plotRef.current?.push(signalValue);
-        // Update state for the single stat card
         setLatestValue(signalValue);
       }
     };
 
     socket.on('decodedData', handler);
-    return () => { socket.disconnect(); };
-  }, [availableSignals]);
+
+    // Cleanup on component unmount
+    return () => {
+      socket.disconnect();
+    };
+  }, []); // Empty dependency array ensures this runs only once
 
   const handleSignalChange = useCallback((signal) => {
-    setSelectedSignal(signal);
-    setLatestValue(null);
-    plotRef.current?.clear();
-  }, []);
+    if (signal !== selectedSignal) {
+      setSelectedSignal(signal);
+      setLatestValue(null);
+      plotRef.current?.clear();
+    }
+  }, [selectedSignal]);
 
   const primaryConfig = getSignalConfig(selectedSignal);
 
