@@ -1,57 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { io } from 'socket.io-client';
-import * as d3 from 'd3';
 import './DataMonitoring.css';
+import { getSignalConfig } from '../../utils/getSignalConfig';
+import { calculateStats } from '../../utils/calculateStats';
+import { useResizeObserver } from '../../hooks/useResizeObserver';
+import { StatCard } from '../StatCard/StatCard';
+import { drawChart } from '../../utils/drawChart';
 
 const MAX_DATA_POINTS = 100;
-
-// --- Configuration ---
-const SIGNAL_CONFIG = {
-  temp: { color: '#38BDF8', unit: '°C' },
-  vol: { color: '#34D399', unit: 'V' },
-  power: { color: '#FBBF24', unit: 'W' },
-  default: { color: '#A78BFA', unit: '' },
-};
-
-const getSignalConfig = (signalName = '') => {
-  const name = signalName.toLowerCase();
-  if (name.includes('temp')) return SIGNAL_CONFIG.temp;
-  if (name.includes('vol')) return SIGNAL_CONFIG.vol;
-  if (name.includes('power')) return SIGNAL_CONFIG.power;
-  return SIGNAL_CONFIG.default;
-};
-
-// --- Helper Hooks & Functions ---
-const useResizeObserver = (ref, callback) => {
-  useEffect(() => {
-    const observer = new ResizeObserver(entries => {
-      for (let entry of entries) {
-        callback(entry.contentRect);
-      }
-    });
-    const node = ref.current;
-    if (node) {
-      observer.observe(node);
-    }
-    return () => {
-      if (node) {
-        observer.unobserve(node);
-      }
-    };
-  }, [ref, callback]);
-};
-
-const calculateStats = (data = []) => {
-  if (data.length === 0) return { min: 0, max: 0, avg: 0, latest: 0 };
-  const latest = data[data.length - 1];
-  const min = d3.min(data);
-  const max = d3.max(data);
-  const avg = d3.mean(data);
-  return { min, max, avg, latest };
-};
-
-
-// --- UI Components ---
 
 function SignalSelector({ signals, selectedSignals, toggleSignal }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -64,6 +20,7 @@ function SignalSelector({ signals, selectedSignals, toggleSignal }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
 
   const selectedCount = selectedSignals.length;
 
@@ -94,125 +51,12 @@ function SignalSelector({ signals, selectedSignals, toggleSignal }) {
   );
 }
 
-function StatCard({ label, stats, unit, color }) {
-  const StatItem = ({ name, value }) => (
-    <div className="text-center">
-      <span className="text-xs text-gray-400 uppercase">{name}</span>
-      <span className="block text-lg font-semibold">{typeof value === 'number' ? value.toFixed(2) : '--'}</span>
-    </div>
-  );
-
-  return (
-    <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 flex flex-col justify-between h-full">
-      <div className="flex justify-between items-center mb-2">
-        <span className="font-bold text-lg" style={{ color }}>{label}</span>
-        <span className="text-sm text-gray-400">{unit}</span>
-      </div>
-      <div className="grid grid-cols-4 gap-1 text-gray-200">
-        <StatItem name="Latest" value={stats.latest} />
-        <StatItem name="Avg" value={stats.avg} />
-        <StatItem name="Min" value={stats.min} />
-        <StatItem name="Max" value={stats.max} />
-      </div>
-    </div>
-  );
-}
-
-const CanvasLinePlot = forwardRef(({ signalNames }, ref) => {
+  const CanvasLinePlot = forwardRef(({ signalNames }, ref) => {
   const canvasRef = useRef();
   const wrapperRef = useRef();
   const dataRef = useRef({ series: new Map() });
 
-  // Direct draw function - no useCallback to avoid dependency issues
-  const drawChart = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const width = rect.width;
-    const height = rect.height;
-    
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
-
-    const margin = { top: 40, right: 20, bottom: 30, left: 50 };
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-
-    const { series } = dataRef.current;
-    const allData = Array.from(series.values()).flat();
-
-    // Scales
-    const xScale = d3.scaleLinear()
-      .domain([0, MAX_DATA_POINTS - 1])
-      .range([margin.left, width - margin.right]);
-
-    const yDomain = allData.length > 0 ? d3.extent(allData) : [0, 100];
-    const yPadding = (yDomain[1] - yDomain[0] || 1) * 0.1;
-    const yScale = d3.scaleLinear()
-      .domain([yDomain[0] - yPadding, yDomain[1] + yPadding])
-      .range([height - margin.bottom, margin.top]);
-
-    // Grid and Y-axis
-    ctx.strokeStyle = '#4B5563';
-    ctx.lineWidth = 0.5;
-    const yTicks = yScale.ticks(5);
-    yTicks.forEach(tick => {
-      const y = yScale(tick);
-      ctx.beginPath();
-      ctx.moveTo(margin.left, y);
-      ctx.lineTo(width - margin.right, y);
-      ctx.stroke();
-      
-      ctx.fillStyle = '#D1D5DB';
-      ctx.font = '11px "Roboto Mono"';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(tick.toFixed(1), margin.left - 5, y);
-    });
-
-    // Clip region for lines
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(margin.left, margin.top, innerWidth, innerHeight);
-    ctx.clip();
-
-    // Draw lines
-    ctx.lineWidth = 2;
-    const lineGenerator = d3.line()
-      .x((d, i) => xScale(i))
-      .y(d => yScale(d))
-      .curve(d3.curveMonotoneX)
-      .context(ctx);
-
-    for (const [signalName, data] of series.entries()) {
-      if (data.length === 0) continue;
-      ctx.strokeStyle = getSignalConfig(signalName).color;
-      ctx.beginPath();
-      lineGenerator(data);
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    // Legend - positioned on the right side
-    ctx.textAlign = 'left';
-    ctx.font = '12px "Roboto Mono"';
-    const legendX = width - margin.right + 10; // Position to the right of the chart
-    Array.from(series.keys()).forEach((signalName, i) => {
-      const color = getSignalConfig(signalName).color;
-      const y = margin.top + i * 20;
-      
-      ctx.fillStyle = color;
-      ctx.fillRect(legendX, y, 12, 12);
-      ctx.fillText(signalName, legendX + 18, y + 8);
-    });
-  };
 
   useImperativeHandle(ref, () => ({
     push: (signalName, value) => {
@@ -225,11 +69,11 @@ const CanvasLinePlot = forwardRef(({ signalNames }, ref) => {
         data.shift();
       }
       // Draw immediately when data arrives - no flag needed
-      drawChart();
+      drawChart(canvasRef, dataRef);
     },
     clear: () => {
       dataRef.current.series.clear();
-      drawChart();
+      drawChart(canvasRef, dataRef);
     },
     getSeries: () => dataRef.current.series
   }));
@@ -244,12 +88,12 @@ const CanvasLinePlot = forwardRef(({ signalNames }, ref) => {
       }
     });
     dataRef.current.series = newSeries;
-    drawChart();
+    drawChart(canvasRef, dataRef);
   }, [signalNames]);
 
   // Handle resize
   useResizeObserver(wrapperRef, () => {
-    drawChart();
+    drawChart(canvasRef, dataRef);
   });
 
   return (
@@ -266,6 +110,8 @@ const CanvasLinePlot = forwardRef(({ signalNames }, ref) => {
     </div>
   );
 });
+
+
 
 // --- Main Component ---
 function DataMonitoring() {
@@ -374,7 +220,7 @@ function DataMonitoring() {
       <div className="max-w-7xl mx-auto">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-white">Telemetry Dashboard</h1>
+            <h1 className="text-3xl font-bold text-white">Live Telemetry Dashboard</h1>
             <div className="flex items-center mt-1">
               <div className={`w-2 h-2 rounded-full mr-2 ${socketStatus === 'Connected' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
               <p className="text-xs text-gray-400">{socketStatus}</p>
