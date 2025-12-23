@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
+
+/* Custom scrollbar for the dropdown menu */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #2d3748; /* gray-800 */
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #4a5568; /* gray-600 */
+  border-radius: 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #718096; /* gray-500 */
+}
+
+/* Remove arrow from native select inside the custom component */
+.custom-select-container select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}

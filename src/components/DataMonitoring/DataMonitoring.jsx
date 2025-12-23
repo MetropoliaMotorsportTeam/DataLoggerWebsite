@@ -1,6 +1,10 @@
-import React from 'react'
-import * as d3 from 'd3';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { drawChart, d3 } from '../../utils/drawChart';
+import './DataMonitoring.css';
+import { getSignalConfig } from '../../utils/getSignalConfig';
+import { calculateStats } from '../../utils/calculateStats';
+import { useResizeObserver } from '../../hooks/useResizeObserver';
+import { StatCard } from '../StatCard/StatCard';
 
 function LinePlot({
   data = [],
@@ -139,6 +143,7 @@ function LinePlot({
       const s = event.selection;
       if (!s) {
         setSelectedRange(null);
+        if (typeof onSelection === 'function') onSelection(null);
         return;
       }
       const [px0, px1] = s;
@@ -195,10 +200,9 @@ function LinePlot({
     };
   }, [brushRef, xScale, yScale, data, marginLeft, marginTop, marginRight, marginBottom, width, height, snapToData, onSelection]);
 
-
   return (
     <div style={{ position: 'relative', width, height }}>
-      <svg width={width} height={height} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
+      <svg ref={svgRef} width={width} height={height} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
       {selectedRange && (
         <rect
           x={xScale(selectedRange[0])}
@@ -350,4 +354,4 @@ function DataMonitoring() {
   )
 }
 
-export default DataMonitoring
+export default DataMonitoring;
