@@ -8,7 +8,8 @@ function Layout({ children }) {
     { name: 'Dashboard', path: '/' },
     { name: 'Firmware', path: '/firmware' },
     { name: 'Data Monitoring', path: '/data' },
-    { name: 'Car Settings', path: '/settings' }
+    { name: 'Car Settings', path: '/settings' },
+    { name: 'Sessions', path: '/sessions' },
   ];
 
   return (
