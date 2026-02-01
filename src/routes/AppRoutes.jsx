@@ -4,6 +4,7 @@ import FirmwarePage from '../pages/FirmwarePage';
 import DataPage from '../pages/DataPage';
 import SettingsPage from '../pages/SettingsPage';
 import SessionsPage from '../pages/SessionsPage';
+import Packinglist from '../pages/PackingList';
 
 
 function AppRoutes() {
@@ -14,6 +15,7 @@ function AppRoutes() {
       <Route path="/data" element={<DataPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/sessions" element={<SessionsPage />} />
+      <Route path="/packinglist" element={<Packinglist />} />
     
 
     </Routes>
