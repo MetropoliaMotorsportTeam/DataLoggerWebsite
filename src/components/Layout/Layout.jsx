@@ -10,6 +10,7 @@ function Layout({ children }) {
     { name: 'Data Monitoring', path: '/data' },
     { name: 'Car Settings', path: '/settings' },
     { name: 'Sessions', path: '/sessions' },
+    { name: 'Packing List', path: '/packinglist' },
   ];
 
   return (
