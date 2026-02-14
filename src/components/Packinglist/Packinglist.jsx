@@ -86,7 +86,9 @@ function serializeDbToCsv(db) {
   const lines = [];
   lines.push(csvRow(["META", "nextId", db.nextId]));
   db.structures.forEach((s) => {
-    lines.push(csvRow(["STRUCT", s.id, s.sections.join("|"), s.columns.join("|")]));
+    lines.push(
+      csvRow(["STRUCT", s.id, s.sections.join("|"), s.columns.join("|")]),
+    );
   });
   db.lists.forEach((l) => {
     lines.push(csvRow(["LIST", l.id, l.name, l.created, l.structureId]));
@@ -100,10 +102,10 @@ function serializeDbToCsv(db) {
         it.packed ? "true" : "false",
         it.item,
         it.section,
-        it.qty,
+        it.quantity,
         it.location,
         it.notes,
-      ])
+      ]),
     );
   });
   return lines.join("\n");
@@ -139,7 +141,7 @@ function loadDbFromCsv(csvText) {
         packed: (cols[3] || "").toLowerCase() === "true",
         item: cols[4] || "",
         section: cols[5] || "",
-        qty: Number(cols[6] || 0) || 0,
+        quantity: Number(cols[6] || 0) || 0,
         location: cols[7] || "",
         notes: cols[8] || "",
       });
@@ -150,7 +152,7 @@ function loadDbFromCsv(csvText) {
     fresh.structures.push({
       id: 1,
       sections: ["Clothing", "Toiletries", "Tech", "Documents", "Misc"],
-      columns: ["packed", "item", "section", "qty", "location", "notes"],
+      columns: ["packed", "item", "section", "quantity", "location", "notes"],
     });
   }
 
@@ -159,7 +161,7 @@ function loadDbFromCsv(csvText) {
     0,
     ...fresh.structures.map((s) => s.id),
     ...fresh.lists.map((l) => l.id),
-    ...fresh.items.map((i) => i.id)
+    ...fresh.items.map((i) => i.id),
   );
   if (!fresh.nextId || fresh.nextId < maxId + 1) fresh.nextId = maxId + 1;
 
@@ -173,7 +175,7 @@ function seedStarterData() {
   const s = {
     id: uid(),
     sections: ["Clothing", "Toiletries", "Tech", "Documents", "Misc"],
-    columns: ["packed", "item", "section", "qty", "location", "notes"],
+    columns: ["packed", "item", "section", "quantity", "location", "notes"],
   };
 
   const list = {
@@ -184,17 +186,60 @@ function seedStarterData() {
   };
 
   const items = [
-    { id: uid(), listId: list.id, packed: false, item: "Socks", section: "Clothing", qty: 6, location: "suitcase", notes: "" },
-    { id: uid(), listId: list.id, packed: true, item: "Jacket", section: "Clothing", qty: 1, location: "wear", notes: "warm" },
-    { id: uid(), listId: list.id, packed: false, item: "Toothbrush", section: "Toiletries", qty: 1, location: "toiletry bag", notes: "" },
-    { id: uid(), listId: list.id, packed: false, item: "Passport", section: "Documents", qty: 1, location: "pocket", notes: "check expiry" },
+    {
+      id: uid(),
+      listId: list.id,
+      packed: false,
+      item: "Socks",
+      section: "Clothing",
+      quantity: 6,
+      location: "suitcase",
+      notes: "",
+    },
+    {
+      id: uid(),
+      listId: list.id,
+      packed: true,
+      item: "Jacket",
+      section: "Clothing",
+      quantity: 1,
+      location: "wear",
+      notes: "warm",
+    },
+    {
+      id: uid(),
+      listId: list.id,
+      packed: false,
+      item: "Toothbrush",
+      section: "Toiletries",
+      quantity: 1,
+      location: "toiletry bag",
+      notes: "",
+    },
+    {
+      id: uid(),
+      listId: list.id,
+      packed: false,
+      item: "Passport",
+      section: "Documents",
+      quantity: 1,
+      location: "pocket",
+      notes: "check expiry",
+    },
   ];
 
   return { structures: [s], lists: [list], items, nextId };
 }
 
 function columnLabel(c) {
-  const map = { packed: "Packed?", item: "Item", section: "Section", qty: "Qty", location: "Location", notes: "Notes" };
+  const map = {
+    packed: "Packed?",
+    item: "Item",
+    section: "Section",
+    quantity: "Quantity",
+    location: "Location",
+    notes: "Notes",
+  };
   return map[c] || c;
 }
 
@@ -214,6 +259,7 @@ export default function Packinglist() {
       return seeded;
     }
   });
+  
 
   const [ui, setUi] = useState({
     currentListId: null,
@@ -221,17 +267,26 @@ export default function Packinglist() {
     activeSection: "ALL",
     itemSearch: "",
     onlyUnpacked: false,
-    modalNewList: false,
+    onlyPacked: false,
+
     modalItem: false,
     modalStructure: false,
     modalImport: false,
     editingItemId: null,
+
+    // ✅ NEW: one modal for both "New list" and "Rename"
+    modalListName: false,
+    listNameMode: "new", // "new" | "rename"
+    listNameDraft: "",
   });
 
   // ensure current list
   useEffect(() => {
-    if (ui.currentListId && db.lists.some((l) => l.id === ui.currentListId)) return;
-    const last = [...db.lists].sort((a, b) => (a.created > b.created ? -1 : 1))[0];
+    if (ui.currentListId && db.lists.some((l) => l.id === ui.currentListId))
+      return;
+    const last = [...db.lists].sort((a, b) =>
+      a.created > b.created ? -1 : 1,
+    )[0];
     setUi((p) => ({ ...p, currentListId: last?.id ?? null }));
   }, [db.lists, ui.currentListId]);
 
@@ -242,13 +297,25 @@ export default function Packinglist() {
 
   const currentList = useMemo(
     () => db.lists.find((l) => l.id === ui.currentListId) || null,
-    [db.lists, ui.currentListId]
+    [db.lists, ui.currentListId],
   );
 
   const currentStruct = useMemo(() => {
     if (!currentList) return null;
     return db.structures.find((s) => s.id === currentList.structureId) || null;
   }, [db.structures, currentList]);
+
+  const sectionCount = useMemo(() => {
+    if (!currentList) return 0;
+    const set = new Set(
+      db.items
+        .filter((it) => it.listId === currentList.id)
+        .map((it) => (it.section || "").trim())
+        .filter(Boolean)
+    );
+    return set.size;
+  }, [db.items, currentList]);
+
 
   const filteredLists = useMemo(() => {
     const q = ui.listSearch.toLowerCase().trim();
@@ -257,10 +324,22 @@ export default function Packinglist() {
       .filter((l) => !q || l.name.toLowerCase().includes(q));
   }, [db.lists, ui.listSearch]);
 
-  const sections = useMemo(() => currentStruct?.sections?.length ? currentStruct.sections : [], [currentStruct]);
+  const sections = useMemo(() => {
+    if (!currentList) return [];
+
+    const fromItems = db.items
+      .filter((it) => it.listId === currentList.id)
+      .map((it) => (it.section || "").trim())
+      .filter(Boolean);
+
+    return Array.from(new Set(fromItems));
+  }, [db.items, currentList]);
   const columns = useMemo(
-    () => (currentStruct?.columns?.length ? currentStruct.columns : ["packed", "item", "section", "qty", "location", "notes"]),
-    [currentStruct]
+    () =>
+      currentStruct?.columns?.length
+        ? currentStruct.columns
+        : ["packed", "item", "section", "quantity", "location", "notes"],
+    [currentStruct],
   );
 
   const filteredItems = useMemo(() => {
@@ -269,15 +348,18 @@ export default function Packinglist() {
 
     let items = db.items.filter((it) => it.listId === currentList.id);
 
-    if (ui.activeSection !== "ALL") items = items.filter((it) => it.section === ui.activeSection);
+    if (ui.activeSection !== "ALL")
+      items = items.filter((it) => it.section === ui.activeSection);
+    if (ui.onlyPacked) items = items.filter((it) => it.packed);
     if (ui.onlyUnpacked) items = items.filter((it) => !it.packed);
 
     if (q) {
-      items = items.filter((it) =>
-        (it.item || "").toLowerCase().includes(q) ||
-        (it.notes || "").toLowerCase().includes(q) ||
-        (it.location || "").toLowerCase().includes(q) ||
-        (it.section || "").toLowerCase().includes(q)
+      items = items.filter(
+        (it) =>
+          (it.item || "").toLowerCase().includes(q) ||
+          (it.notes || "").toLowerCase().includes(q) ||
+          (it.location || "").toLowerCase().includes(q) ||
+          (it.section || "").toLowerCase().includes(q),
       );
     }
 
@@ -290,63 +372,129 @@ export default function Packinglist() {
   }, [db.items, currentList, ui.activeSection, ui.onlyUnpacked, ui.itemSearch]);
 
   // -------- actions --------
-  const uid = () => {
-    const id = db.nextId;
-    setDb((p) => ({ ...p, nextId: p.nextId + 1 }));
-    return id;
-  };
-
   const createNewList = (name, useLastStructure) => {
     const created = new Date().toISOString();
+    let newListId = null;
 
-    let newStructId;
     setDb((prev) => {
-      let structures = [...prev.structures];
-      let lists = [...prev.lists];
+      const structures = [...prev.structures];
+      const lists = [...prev.lists];
+
+      const newStructId = prev.nextId; // struct id
+      const listId = prev.nextId + 1; // list id (right after struct)
+      newListId = listId;
 
       if (useLastStructure && prev.lists.length) {
-        const last = [...prev.lists].sort((a, b) => (a.created > b.created ? -1 : 1))[0];
+        const last = [...prev.lists].sort((a, b) =>
+          a.created > b.created ? -1 : 1,
+        )[0];
         const s = prev.structures.find((x) => x.id === last.structureId);
-        const copy = { id: prev.nextId, sections: [...(s?.sections || [])], columns: [...(s?.columns || [])] };
-        structures.push(copy);
-        newStructId = copy.id;
-        prev = { ...prev, nextId: prev.nextId + 1 };
+        structures.push({
+          id: newStructId,
+          sections: [...(s?.sections || [])],
+          columns: [...(s?.columns || [])],
+        });
       } else {
-        const blank = { id: prev.nextId, sections: [], columns: ["packed", "item", "section", "qty", "location", "notes"] };
-        structures.push(blank);
-        newStructId = blank.id;
-        prev = { ...prev, nextId: prev.nextId + 1 };
+        structures.push({
+          id: newStructId,
+          sections: [],
+          columns: [
+            "packed",
+            "item",
+            "section",
+            "quantity",
+            "location",
+            "notes",
+          ],
+        });
       }
 
-      const list = { id: prev.nextId, name: name || defaultListName(), created, structureId: newStructId };
-      lists.push(list);
+      lists.push({
+        id: listId,
+        name: (name || "").trim() || defaultListName(),
+        created,
+        structureId: newStructId,
+      });
 
-      return { ...prev, structures, lists, nextId: prev.nextId + 1 };
+      return { ...prev, structures, lists, nextId: prev.nextId + 2 };
     });
 
-    // UI update after db update
+    // switch to it + reset filters + close modal
     setUi((p) => ({
       ...p,
-      modalNewList: false,
+      currentListId: newListId ?? p.currentListId,
       activeSection: "ALL",
       itemSearch: "",
       onlyUnpacked: false,
-      // currentListId will be set by effect once db updates; but we can also set it right away after creation
+      modalListName: false,
+      listNameDraft: "",
+    }));
+  };
+
+  const renameCurrentList = (name) => {
+    if (!currentList) return;
+    const nextName = (name || "").trim();
+    if (!nextName) return;
+
+    setDb((p) => ({
+      ...p,
+      lists: p.lists.map((x) =>
+        x.id === currentList.id ? { ...x, name: nextName } : x,
+      ),
+    }));
+
+    setUi((p) => ({
+      ...p,
+      modalListName: false,
+      listNameDraft: "",
     }));
   };
 
   const togglePacked = (itemId) => {
     setDb((p) => ({
       ...p,
-      items: p.items.map((it) => (it.id === itemId ? { ...it, packed: !it.packed } : it)),
+      items: p.items.map((it) =>
+        it.id === itemId ? { ...it, packed: !it.packed } : it,
+      ),
     }));
   };
+
+  const addItem = ({ packed, item, section, quantity, location, notes }) => {
+    if (!currentList) {
+      alert("No list selected!");
+      return;
+    }
+
+    setDb(prev => {
+      const newItem = {
+        id: prev.nextId,   
+        listId: currentList.id,
+        packed: !!packed,
+        item: item || "",
+        section: section || "",
+        quantity: Number(quantity) || 0,
+        location: location || "",
+        notes: notes || ""
+      };
+
+      return {
+        ...prev,
+        items: [...prev.items, newItem],
+        nextId: prev.nextId + 1
+      };
+    });
+
+    setUi(p => ({ ...p, modalItem: false }));
+  };
+
 
   const markAllShownPacked = () => {
     const ids = new Set(filteredItems.map((x) => x.id));
     setDb((p) => ({
       ...p,
-      items: p.items.map((it) => (ids.has(it.id) ? { ...it, packed: true } : it)),
+      items: p.items.map((it) =>
+        ids.has(it.id) ? { ...it, packed: true } : it,
+      ),
     }));
   };
 
@@ -357,15 +505,42 @@ export default function Packinglist() {
   };
 
   const exportCsv = () => {
-    const csv = serializeDbToCsv(db);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    if (!currentList) return;
+
+    const items = db.items.filter((it) => it.listId === currentList.id);
+    const headers = [
+      "Packed?",
+      "Item",
+      "Section",
+      "Quantity",
+      "Location",
+      "Notes",
+    ];
+
+    const rows = items.map((it) => [
+      it.packed ? "YES" : "NO",
+      it.item || "",
+      it.section || "",
+      it.quantity ?? "",
+      it.location || "",
+      it.notes || "",
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map(csvEscape).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `packing_demo_export_${todayISO()}.csv`;
+    a.download = `${currentList.name}.csv`;
     document.body.appendChild(a);
     a.click();
-    a.remove();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
@@ -381,10 +556,27 @@ export default function Packinglist() {
           </div>
 
           <div className="actions">
-            <button className="primary" onClick={() => setUi((p) => ({ ...p, modalNewList: true }))}>
+            <button
+              className="primary"
+              onClick={() =>
+                setUi((p) => ({
+                  ...p,
+                  modalListName: true,
+                  listNameMode: "new",
+                  listNameDraft: defaultListName(),
+                }))
+              }
+            >
               + New Packing List
             </button>
-            <button onClick={() => setUi((p) => ({ ...p, modalItem: true, editingItemId: null }))}>+ Add Item</button>
+
+            <button
+              onClick={() =>
+                setUi((p) => ({ ...p, modalItem: true, editingItemId: null }))
+              }
+            >
+              + Add Item
+            </button>
             <button onClick={exportCsv}>Export CSV</button>
           </div>
         </div>
@@ -403,12 +595,16 @@ export default function Packinglist() {
               <input
                 placeholder="Search lists..."
                 value={ui.listSearch}
-                onChange={(e) => setUi((p) => ({ ...p, listSearch: e.target.value }))}
+                onChange={(e) =>
+                  setUi((p) => ({ ...p, listSearch: e.target.value }))
+                }
               />
 
               <div className="list">
                 {filteredLists.map((l) => {
-                  const itemCount = db.items.filter((it) => it.listId === l.id).length;
+                  const itemCount = db.items.filter(
+                    (it) => it.listId === l.id,
+                  ).length;
                   const active = l.id === ui.currentListId;
                   return (
                     <div
@@ -425,10 +621,20 @@ export default function Packinglist() {
                       }
                     >
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 13,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
                           {l.name}
                         </div>
-                        <div className="mini">{new Date(l.created).toLocaleString()}</div>
+                        <div className="mini">
+                          {new Date(l.created).toLocaleString()}
+                        </div>
                       </div>
                       <div className="badge">{itemCount} items</div>
                     </div>
@@ -437,7 +643,8 @@ export default function Packinglist() {
               </div>
 
               <div className="hint">
-                New list defaults to <b>packing_list_YYYY-MM-DD</b> and copies the last list’s structure.
+                New list defaults to <b>packing_list_YYYY-MM-DD</b> and copies
+                the last list’s structure.
               </div>
             </div>
           </section>
@@ -447,7 +654,9 @@ export default function Packinglist() {
             <div className="head">
               <h2>Current List</h2>
               <span className="muted">
-                {currentList ? `Created: ${new Date(currentList.created).toLocaleString()}` : "No list selected"}
+                {currentList
+                  ? `Created: ${new Date(currentList.created).toLocaleString()}`
+                  : "No list selected"}
               </span>
             </div>
 
@@ -455,26 +664,53 @@ export default function Packinglist() {
               <div className="split2">
                 <div className="stack">
                   <label className="muted">Name</label>
-                  <input
-                    value={currentList?.name || ""}
-                    onChange={(e) => {
-                      if (!currentList) return;
-                      const name = e.target.value;
-                      setDb((p) => ({
-                        ...p,
-                        lists: p.lists.map((x) => (x.id === currentList.id ? { ...x, name } : x)),
-                      }));
-                    }}
-                  />
+
+                  {/* ✅ Name + Rename button (no inline input) */}
+                  <div
+                    className="row"
+                    style={{ gap: 10, justifyContent: "flex-start" }}
+                  >
+                    <span
+                      className="badge"
+                      style={{
+                        maxWidth: 260,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {currentList?.name || "—"}
+                    </span>
+                    <button
+                      disabled={!currentList}
+                      onClick={() => {
+                        if (!currentList) return;
+                        setUi((p) => ({
+                          ...p,
+                          modalListName: true,
+                          listNameMode: "rename",
+                          listNameDraft: currentList.name || "",
+                        }));
+                      }}
+                    >
+                      Rename
+                    </button>
+                  </div>
                 </div>
 
                 <div className="stack">
                   <label className="muted">Structure</label>
                   <div className="row">
                     <span className="badge">
-                      {currentStruct ? `${(currentStruct.sections?.length || 0)} sections • ${(currentStruct.columns?.length || 0)} columns` : "—"}
+                      {currentList ? `${sectionCount} sections • 7 columns` : "—"}
                     </span>
-                    <button onClick={() => setUi((p) => ({ ...p, modalStructure: true }))}>Edit structure</button>
+                    <button
+                      onClick={() =>
+                        setUi((p) => ({ ...p, modalStructure: true }))
+                      }
+                    >
+                      Edit items
+                    </button>
                   </div>
                 </div>
               </div>
@@ -486,8 +722,12 @@ export default function Packinglist() {
                     {["ALL", ...sections].map((sec) => (
                       <div
                         key={sec}
-                        className={"chip" + (ui.activeSection === sec ? " active" : "")}
-                        onClick={() => setUi((p) => ({ ...p, activeSection: sec }))}
+                        className={
+                          "chip" + (ui.activeSection === sec ? " active" : "")
+                        }
+                        onClick={() =>
+                          setUi((p) => ({ ...p, activeSection: sec }))
+                        }
                       >
                         {sec === "ALL" ? "All sections" : sec}
                       </div>
@@ -500,21 +740,49 @@ export default function Packinglist() {
                   <input
                     placeholder="Search item / notes / location..."
                     value={ui.itemSearch}
-                    onChange={(e) => setUi((p) => ({ ...p, itemSearch: e.target.value }))}
+                    onChange={(e) =>
+                      setUi((p) => ({ ...p, itemSearch: e.target.value }))
+                    }
                   />
                 </div>
               </div>
 
-              <div className="row">
-                <label className="row" style={{ gap: 8, justifyContent: "flex-start" }}>
+              <div
+                className="row"
+                style={{ gap: 16, justifyContent: "flex-start" }}
+              >
+                <label className="row" style={{ gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    style={{ width: "auto", transform: "translateY(1px)" }}
+                    checked={ui.onlyPacked}
+                    onChange={(e) =>
+                      setUi((p) => ({
+                        ...p,
+                        onlyPacked: e.target.checked,
+                        onlyUnpacked: e.target.checked ? false : p.onlyUnpacked,
+                      }))
+                    }
+                  />
+                  <span className="muted">Show only packed</span>
+                </label>
+
+                <label className="row" style={{ gap: 8 }}>
                   <input
                     type="checkbox"
                     style={{ width: "auto", transform: "translateY(1px)" }}
                     checked={ui.onlyUnpacked}
-                    onChange={(e) => setUi((p) => ({ ...p, onlyUnpacked: e.target.checked }))}
+                    onChange={(e) =>
+                      setUi((p) => ({
+                        ...p,
+                        onlyUnpacked: e.target.checked, // ✅ fixed spelling
+                        onlyPacked: e.target.checked ? false : p.onlyPacked,
+                      }))
+                    }
                   />
                   <span className="muted">Show only unpacked</span>
                 </label>
+
                 <div style={{ flex: 2 }} />
                 <span className="badge">{filteredItems.length} shown</span>
               </div>
@@ -536,17 +804,37 @@ export default function Packinglist() {
                           if (c === "packed") {
                             return (
                               <td key={c}>
-                                {it.packed ? <span className="k ok">☑ Packed</span> : <span className="k no">☐ Not packed</span>}
+                                {it.packed ? (
+                                  <span className="k ok">☑ Packed</span>
+                                ) : (
+                                  <span className="k no">☐ Not packed</span>
+                                )}
                               </td>
                             );
                           }
-                          if (c === "section") return <td key={c}><span className="badge">{it.section}</span></td>;
-                          if (c === "item") return <td key={c}><div style={{ fontWeight: 700 }}>{it.item}</div></td>;
+                          if (c === "section")
+                            return (
+                              <td key={c}>
+                                <span className="badge">{it.section}</span>
+                              </td>
+                            );
+                          if (c === "item")
+                            return (
+                              <td key={c}>
+                                <div style={{ fontWeight: 700 }}>{it.item}</div>
+                              </td>
+                            );
                           return <td key={c}>{String(it[c] ?? "")}</td>;
                         })}
                         <td>
-                          <div className="row" style={{ gap: 8, justifyContent: "flex-start" }}>
-                            <button className="ghost" onClick={() => togglePacked(it.id)}>
+                          <div
+                            className="row"
+                            style={{ gap: 8, justifyContent: "flex-start" }}
+                          >
+                            <button
+                              className="ghost"
+                              onClick={() => togglePacked(it.id)}
+                            >
                               {it.packed ? "Unpack" : "Pack"}
                             </button>
                           </div>
@@ -565,49 +853,128 @@ export default function Packinglist() {
               </div>
 
               <div className="row">
-                <button className="good" onClick={markAllShownPacked}>Mark all shown as packed</button>
-                <button className="bad" onClick={deletePackedShown}>Delete packed (shown)</button>
+                <button className="good" onClick={markAllShownPacked}>
+                  Mark all shown as packed
+                </button>
+                <button className="bad" onClick={deletePackedShown}>
+                  Delete packed (shown)
+                </button>
               </div>
             </div>
           </section>
         </div>
       </main>
 
-      {/* NEW LIST MODAL (simple version) */}
-      {ui.modalNewList && (
-        <div className="modalBackdrop" onClick={() => setUi((p) => ({ ...p, modalNewList: false }))} style={{ display: "flex" }}>
+      {/* ✅ NEW/RENAME LIST MODAL */}
+      {ui.modalListName && (
+        <div
+          className={`modalBackdrop ${ui.modalListName ? "open" : ""}`}
+          onClick={() => setUi((p) => ({ ...p, modalListName: false }))}
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="head">
-              <h3>New Packing List</h3>
-              <button className="ghost closeX" onClick={() => setUi((p) => ({ ...p, modalNewList: false }))}>✕</button>
+              <h3>
+                {ui.listNameMode === "new"
+                  ? "New Packing List"
+                  : "Rename Packing List"}
+              </h3>
+              <button
+                className="ghost closeX"
+                onClick={() => setUi((p) => ({ ...p, modalListName: false }))}
+              >
+                ✕
+              </button>
             </div>
+
             <div className="body stack">
-              <div className="stack">
-                <label className="muted">Name</label>
-                <input
-                  defaultValue={defaultListName()}
-                  id="newListNameReact"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      const name = e.currentTarget.value.trim() || defaultListName();
-                      createNewList(name, true);
-                    }
-                  }}
-                />
-              </div>
-              <div className="hint">This creates a list copying the last structure.</div>
+              <label className="muted">Name</label>
+              <input
+                autoFocus
+                value={ui.listNameDraft}
+                onChange={(e) =>
+                  setUi((p) => ({ ...p, listNameDraft: e.target.value }))
+                }
+                placeholder="Enter list name..."
+              />
             </div>
+
             <div className="foot">
-              <button className="ghost" onClick={() => setUi((p) => ({ ...p, modalNewList: false }))}>Cancel</button>
+              <button
+                className="ghost"
+                onClick={() => setUi((p) => ({ ...p, modalListName: false }))}
+              >
+                Cancel
+              </button>
+
               <button
                 className="primary"
                 onClick={() => {
-                  const input = document.getElementById("newListNameReact");
-                  const name = (input?.value || "").trim() || defaultListName();
-                  createNewList(name, true);
+                  if (ui.listNameMode === "new") {
+                    createNewList(ui.listNameDraft, true);
+                  } else {
+                    renameCurrentList(ui.listNameDraft);
+                  }
                 }}
               >
-                Create List
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ITEM MODAL (your existing one) */}
+      {ui.modalItem && (
+        <div
+          className={`modalBackdrop ${ui.modalItem ? "open" : ""}`}
+          onClick={() => setUi((p) => ({ ...p, modalItem: false }))}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="head">
+              <h3>Add Item</h3>
+              <button
+                className="ghost closeX"
+                onClick={() => setUi((p) => ({ ...p, modalItem: false }))}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="body stack">
+              <label className="row packedRow">
+                <span>Packed?</span>
+                <input type="checkbox" id="newItemPacked" />
+              </label>
+
+              <input placeholder="Item" id="newItemName" />
+              <input placeholder="Section" id="newItemSection" />
+              <input placeholder="Quantity" type="number" id="newItemQty" />
+              <input placeholder="Location" id="newItemLocation" />
+              <input placeholder="Notes" id="newItemNotes" />
+            </div>
+
+            <div className="foot">
+              <button
+                className="ghost"
+                onClick={() => setUi((p) => ({ ...p, modalItem: false }))}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="primary"
+                onClick={() => {
+                  addItem({
+                    packed: document.getElementById("newItemPacked").checked,
+                    item: document.getElementById("newItemName").value,
+                    section: document.getElementById("newItemSection").value,
+                    quantity: document.getElementById("newItemQty").value,
+                    location: document.getElementById("newItemLocation").value,
+                    notes: document.getElementById("newItemNotes").value,
+                  });
+                }}
+              >
+                Add
               </button>
             </div>
           </div>
