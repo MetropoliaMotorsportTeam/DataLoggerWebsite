@@ -259,7 +259,6 @@ export default function Packinglist() {
       return seeded;
     }
   });
-  
 
   const [ui, setUi] = useState({
     currentListId: null,
@@ -273,12 +272,16 @@ export default function Packinglist() {
     modalStructure: false,
     modalImport: false,
     editingItemId: null,
+    modalEditItem: false,
+    editItemId: null,
 
     // ✅ NEW: one modal for both "New list" and "Rename"
     modalListName: false,
     listNameMode: "new", // "new" | "rename"
     listNameDraft: "",
   });
+
+  const [csvInputKey, setCsvInputKey] = useState(0);
 
   // ensure current list
   useEffect(() => {
@@ -294,6 +297,31 @@ export default function Packinglist() {
   useEffect(() => {
     localStorage.setItem(LS_KEY, serializeDbToCsv(db));
   }, [db]);
+
+  useEffect(() => {
+    setDb((prev) => {
+      const seen = new Set();
+      let changed = false;
+      let nextId = prev.nextId;
+
+      const items = prev.items.map((it) => {
+        if (!seen.has(it.id)) {
+          seen.add(it.id);
+          return it;
+        }
+        // duplicate found -> assign new id
+        changed = true;
+        const newIt = { ...it, id: nextId++ };
+        seen.add(newIt.id);
+        return newIt;
+      });
+
+      if (!changed && nextId === prev.nextId) return prev;
+
+      return { ...prev, items, nextId };
+    });
+  }, []);
+
 
   const currentList = useMemo(
     () => db.lists.find((l) => l.id === ui.currentListId) || null,
@@ -311,11 +339,10 @@ export default function Packinglist() {
       db.items
         .filter((it) => it.listId === currentList.id)
         .map((it) => (it.section || "").trim())
-        .filter(Boolean)
+        .filter(Boolean),
     );
     return set.size;
   }, [db.items, currentList]);
-
 
   const filteredLists = useMemo(() => {
     const q = ui.listSearch.toLowerCase().trim();
@@ -363,13 +390,17 @@ export default function Packinglist() {
       );
     }
 
-    items.sort((a, b) => {
-      if (a.packed !== b.packed) return a.packed ? 1 : -1;
-      return (a.item || "").localeCompare(b.item || "");
-    });
+    items.sort((a, b) => a.id - b.id);
 
     return items;
-  }, [db.items, currentList, ui.activeSection, ui.onlyUnpacked, ui.itemSearch]);
+  }, [
+    db.items,
+    currentList,
+    ui.activeSection,
+    ui.onlyPacked, 
+    ui.onlyUnpacked,
+    ui.itemSearch,
+  ]);
 
   // -------- actions --------
   const createNewList = (name, useLastStructure) => {
@@ -465,28 +496,34 @@ export default function Packinglist() {
       return;
     }
 
-    setDb(prev => {
+    setDb((prev) => {
       const newItem = {
-        id: prev.nextId,   
+        id: prev.nextId,
         listId: currentList.id,
         packed: !!packed,
         item: item || "",
         section: section || "",
         quantity: Number(quantity) || 0,
         location: location || "",
-        notes: notes || ""
+        notes: notes || "",
       };
 
       return {
         ...prev,
         items: [...prev.items, newItem],
-        nextId: prev.nextId + 1
+        nextId: prev.nextId + 1,
       };
     });
 
-    setUi(p => ({ ...p, modalItem: false }));
+    setUi((p) => ({ ...p, modalItem: false }));
   };
 
+  const updateItem = (itemId, patch) => {
+    setDb((p) => ({
+      ...p,
+      items: p.items.map((it) => (it.id === itemId ? { ...it, ...patch } : it)),
+    }));
+  };
 
   const markAllShownPacked = () => {
     const ids = new Set(filteredItems.map((x) => x.id));
@@ -502,6 +539,96 @@ export default function Packinglist() {
     if (!confirm("Delete all packed items currently shown?")) return;
     const ids = new Set(filteredItems.filter((x) => x.packed).map((x) => x.id));
     setDb((p) => ({ ...p, items: p.items.filter((it) => !ids.has(it.id)) }));
+  };
+
+  const importCsvToCurrentList = async (file) => {
+    if (!currentList) {
+      alert("No list selected!");
+      return;
+    }
+    if (!file) return;
+
+    const text = await file.text();
+    const lines = splitLines(text);
+    if (!lines.length) {
+      alert("CSV is empty.");
+      return;
+    }
+
+    // Parse header
+    const header = parseCsvLine(lines[0]).map((h) =>
+      (h || "").trim().toLowerCase(),
+    );
+    const idx = (name) => header.indexOf(name);
+
+    // Support a few common header variants
+    const iPacked = idx("packed?") >= 0 ? idx("packed?") : idx("packed");
+    const iItem = idx("item");
+    const iSection = idx("section");
+    const iQty = idx("quantity") >= 0 ? idx("quantity") : idx("qty");
+    const iLoc = idx("location");
+    const iNotes = idx("notes");
+
+    if (iItem < 0) {
+      alert('CSV must have at least an "Item" column.');
+      return;
+    }
+
+    setDb((prev) => {
+      // Remove current list items
+      const kept = prev.items.filter((it) => it.listId !== currentList.id);
+
+      let nextId = prev.nextId;
+      const imported = [];
+
+      for (let r = 1; r < lines.length; r++) {
+        const cols = parseCsvLine(lines[r]);
+
+        const packedRaw =
+          iPacked >= 0 ? (cols[iPacked] || "").trim().toLowerCase() : "";
+        const packed =
+          packedRaw === "true" ||
+          packedRaw === "1" ||
+          packedRaw === "yes" ||
+          packedRaw === "y";
+
+        const item = (cols[iItem] || "").trim();
+        if (!item) continue; // skip empty rows
+
+        const section = iSection >= 0 ? (cols[iSection] || "").trim() : "";
+        const quantity = iQty >= 0 ? Number((cols[iQty] || "").trim()) || 0 : 0;
+        const location = iLoc >= 0 ? (cols[iLoc] || "").trim() : "";
+        const notes = iNotes >= 0 ? (cols[iNotes] || "").trim() : "";
+
+        imported.push({
+          id: nextId++,
+          listId: currentList.id,
+          packed,
+          item,
+          section,
+          quantity,
+          location,
+          notes,
+        });
+      }
+
+      return {
+        ...prev,
+        items: [...kept, ...imported],
+        nextId,
+      };
+    });
+
+    // Optional: reset filters so user sees imported stuff
+    setUi((p) => ({
+      ...p,
+      activeSection: "ALL",
+      itemSearch: "",
+      onlyPacked: false,
+      onlyUnpacked: false,
+    }));
+
+    alert("CSV loaded into the current list!");
   };
 
   const exportCsv = () => {
@@ -577,10 +704,35 @@ export default function Packinglist() {
             >
               + Add Item
             </button>
+            <button
+              onClick={() => {
+                if (!currentList) {
+                  alert("No list selected!");
+                  return;
+                }
+                document.getElementById("csvFileInput").click();
+              }}
+            >
+              Upload CSV
+            </button>
+
             <button onClick={exportCsv}>Export CSV</button>
           </div>
         </div>
       </header>
+
+      <input
+        key={csvInputKey}
+        id="csvFileInput"
+        type="file"
+        accept=".csv,text/csv"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          importCsvToCurrentList(file);
+          setCsvInputKey((k) => k + 1);
+        }}
+      />
 
       <main>
         <div className="grid">
@@ -702,11 +854,17 @@ export default function Packinglist() {
                   <label className="muted">Structure</label>
                   <div className="row">
                     <span className="badge">
-                      {currentList ? `${sectionCount} sections • 7 columns` : "—"}
+                      {currentList
+                        ? `${sectionCount} sections • 7 columns`
+                        : "—"}
                     </span>
                     <button
                       onClick={() =>
-                        setUi((p) => ({ ...p, modalStructure: true }))
+                        setUi((p) => ({
+                          ...p,
+                          modalEditItem: true,
+                          editItemId: null,
+                        }))
                       }
                     >
                       Edit items
@@ -738,7 +896,7 @@ export default function Packinglist() {
                 <div className="stack">
                   <label className="muted">Search items</label>
                   <input
-                    placeholder="Search item / notes / location..."
+                    placeholder="Search item..."
                     value={ui.itemSearch}
                     onChange={(e) =>
                       setUi((p) => ({ ...p, itemSearch: e.target.value }))
@@ -775,7 +933,7 @@ export default function Packinglist() {
                     onChange={(e) =>
                       setUi((p) => ({
                         ...p,
-                        onlyUnpacked: e.target.checked, // ✅ fixed spelling
+                        onlyUnpacked: e.target.checked,
                         onlyPacked: e.target.checked ? false : p.onlyPacked,
                       }))
                     }
@@ -915,6 +1073,159 @@ export default function Packinglist() {
                     renameCurrentList(ui.listNameDraft);
                   }
                 }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* edit item */}
+      {ui.modalEditItem && (
+        <div
+          className={`modalBackdrop ${ui.modalEditItem ? "open" : ""}`}
+          onClick={() =>
+            setUi((p) => ({ ...p, modalEditItem: false, editItemId: null }))
+          }
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="head">
+              <h3>Edit Item</h3>
+              <button
+                className="ghost closeX"
+                onClick={() =>
+                  setUi((p) => ({
+                    ...p,
+                    modalEditItem: false,
+                    editItemId: null,
+                  }))
+                }
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="body stack">
+              {!currentList ? (
+                <div className="muted">No list selected.</div>
+              ) : (
+                <>
+                  <label className="muted">Choose item</label>
+                  <select
+                    value={ui.editItemId ?? ""}
+                    onChange={(e) =>
+                      setUi((p) => ({
+                        ...p,
+                        editItemId: e.target.value
+                          ? Number(e.target.value)
+                          : null,
+                      }))
+                    }
+                  >
+                    <option value="">-- Select an item --</option>
+                    {db.items
+                      .filter((it) => it.listId === currentList.id)
+                      .slice()
+                      .sort((a, b) =>
+                        (a.item || "").localeCompare(b.item || ""),
+                      )
+                      .map((it) => (
+                        <option key={it.id} value={it.id}>
+                          {it.item || "(Unnamed item)"}{" "}
+                          {it.section ? `— ${it.section}` : ""}
+                        </option>
+                      ))}
+                  </select>
+
+                  {ui.editItemId &&
+                    (() => {
+                      const it = db.items.find((x) => x.id === ui.editItemId);
+                      if (!it) return null;
+
+                      return (
+                        <>
+                          <div style={{ height: 8 }} />
+
+                          <label className="row packedRow">
+                            <span>Packed?</span>
+                            <input
+                              type="checkbox"
+                              checked={!!it.packed}
+                              onChange={(e) =>
+                                updateItem(it.id, { packed: e.target.checked })
+                              }
+                            />
+                          </label>
+
+                          <input
+                            value={it.item}
+                            onChange={(e) =>
+                              updateItem(it.id, { item: e.target.value })
+                            }
+                            placeholder="Item"
+                          />
+                          <input
+                            value={it.section}
+                            onChange={(e) =>
+                              updateItem(it.id, { section: e.target.value })
+                            }
+                            placeholder="Section"
+                          />
+                          <input
+                            type="number"
+                            value={it.quantity}
+                            onChange={(e) =>
+                              updateItem(it.id, {
+                                quantity: Number(e.target.value) || 0,
+                              })
+                            }
+                            placeholder="Quantity"
+                          />
+                          <input
+                            value={it.location}
+                            onChange={(e) =>
+                              updateItem(it.id, { location: e.target.value })
+                            }
+                            placeholder="Location"
+                          />
+                          <input
+                            value={it.notes}
+                            onChange={(e) =>
+                              updateItem(it.id, { notes: e.target.value })
+                            }
+                            placeholder="Notes"
+                          />
+                        </>
+                      );
+                    })()}
+                </>
+              )}
+            </div>
+
+            <div className="foot">
+              <button
+                className="ghost"
+                onClick={() =>
+                  setUi((p) => ({
+                    ...p,
+                    modalEditItem: false,
+                    editItemId: null,
+                  }))
+                }
+              >
+                Cancel
+              </button>
+              <button
+                className="primary"
+                disabled={!ui.editItemId}
+                onClick={() =>
+                  setUi((p) => ({
+                    ...p,
+                    modalEditItem: false,
+                    editItemId: null,
+                  }))
+                }
               >
                 Save
               </button>
