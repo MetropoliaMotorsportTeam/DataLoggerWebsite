@@ -610,8 +610,131 @@ function DataMonitoring() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newX, setNewX] = useState("");
   const [newY, setNewY] = useState("");
-  const [oxLabel, setOxLabel] = useState("Ox");
-  const [oyLabel, setOyLabel] = useState("Oy");
+  const [availableCols, setAvailableCols] = useState([]);
+  const [selectedXKey, setSelectedXKey] = useState("x");
+  const [selectedYKey, setSelectedYKey] = useState("y");
+
+  const oxLabel = selectedXKey;
+  const oyLabel = selectedYKey;
+  const fileInputRef = useRef(null);
+  
+  //Work with CSV
+
+  function parseCSV(text) {
+    // Simple CSV parser (supports commas, quotes)
+    const rows = [];
+    let row = [];
+    let cell = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const next = text[i + 1];
+
+      if (ch === '"' && inQuotes && next === '"') {
+        cell += '"';
+        i++;
+        continue;
+      }
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+        continue;
+      }
+      if (ch === "," && !inQuotes) {
+        row.push(cell);
+        cell = "";
+        continue;
+      }
+      if ((ch === "\n" || ch === "\r") && !inQuotes) {
+        if (ch === "\r" && next === "\n") i++;
+        row.push(cell);
+        cell = "";
+        // ignore totally empty final lines
+        if (row.some((v) => v.trim() !== "")) rows.push(row);
+        row = [];
+        continue;
+      }
+      cell += ch;
+    }
+
+    // last cell
+    row.push(cell);
+    if (row.some((v) => v.trim() !== "")) rows.push(row);
+
+    return rows;
+  }
+
+  function toNumberMaybe(v) {
+    const s = String(v ?? "").trim();
+    if (s === "") return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : s; // keep as string if not numeric
+  }
+
+  async function handleImportFile(file) {
+    const text = await file.text();
+    const rows = parseCSV(text);
+    if (rows.length < 2) {
+      alert("CSV must have a header row and at least one data row.");
+      return;
+    }
+
+    const headers = rows[0].map((h) => h.trim()).filter(Boolean);
+    if (headers.length < 2) {
+      alert("CSV must have at least 2 columns.");
+      return;
+    }
+
+    // Build objects: {header1: value1, header2: value2, ...}
+    const dataObjects = [];
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      const obj = {};
+      headers.forEach((h, idx) => {
+        obj[h] = toNumberMaybe(row[idx]);
+      });
+      dataObjects.push(obj);
+    }
+
+    setAvailableCols(headers);
+
+    // default selection: first 2 headers
+    setSelectedXKey(headers[0]);
+    setSelectedYKey(headers[1]);
+
+    // Put parsed data into your undoable telemetry state:
+    setTelemetryData(dataObjects);
+  }
+
+  function escapeCSVCell(v) {
+    const s = v == null ? "" : String(v);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  }
+
+  function exportSelectedToCSV(rows, xKey, yKey) {
+    const headerLine = [xKey, yKey].map(escapeCSVCell).join(",");
+    const lines = [headerLine];
+
+    for (const r of rows) {
+      const a = escapeCSVCell(r?.[xKey]);
+      const b = escapeCSVCell(r?.[yKey]);
+      lines.push(`${a},${b}`);
+    }
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${xKey}_${yKey}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+  }
 
   // IMPORTANT: editable data should be state (not a const)
   const {
@@ -683,6 +806,7 @@ function DataMonitoring() {
               >
                 {isEditing ? "Done" : "Edit"}
               </button>
+
               {isEditing && (
                 <button
                   className="px-3 py-1 rounded text-sm bg-blue-600 hover:bg-blue-700"
@@ -695,31 +819,80 @@ function DataMonitoring() {
                   Add point
                 </button>
               )}
+
+              {/* ✅ ADD THESE HERE */}
+              <button
+                className="px-3 py-1 rounded text-sm bg-gray-700 hover:bg-gray-600"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Import
+              </button>
+
+              <button
+                className="px-3 py-1 rounded text-sm bg-gray-700 hover:bg-gray-600"
+                onClick={() =>
+                  exportSelectedToCSV(telemetryData, selectedXKey, selectedYKey)
+                }
+                disabled={!telemetryData?.length}
+              >
+                Export
+              </button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  handleImportFile(f);
+                  e.target.value = "";
+                }}
+              />
             </div>
           </div>
 
-          <div className="flex gap-3 mb-3">
-            <div className="flex flex-col">
-              <label className="text-xs text-gray-200 mb-1">Ox name</label>
-              <input
-                value={oxLabel}
-                onChange={(e) => setOxLabel(e.target.value)}
-                className="px-2 py-1 rounded text-black text-sm"
-              />
-            </div>
+          {availableCols.length > 0 && (
+            <div className="flex gap-3 mb-3">
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-200 mb-1">Ox column</label>
+                <select
+                  value={selectedXKey}
+                  onChange={(e) => setSelectedXKey(e.target.value)}
+                  className="px-2 py-1 rounded text-black text-sm"
+                >
+                  {availableCols.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="flex flex-col">
-              <label className="text-xs text-gray-200 mb-1">Oy name</label>
-              <input
-                value={oyLabel}
-                onChange={(e) => setOyLabel(e.target.value)}
-                className="px-2 py-1 rounded text-black text-sm"
-              />
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-200 mb-1">Oy column</label>
+                <select
+                  value={selectedYKey}
+                  onChange={(e) => setSelectedYKey(e.target.value)}
+                  className="px-2 py-1 rounded text-black text-sm"
+                >
+                  {availableCols.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
+          )}
 
           <LinePlot
             data={telemetryData}
+            xKey={selectedXKey}
+            yKey={selectedYKey}
+            xLabel={selectedXKey}
+            yLabel={selectedYKey}
             editable={isEditing}
             onDataChange={setTelemetryData}
             width={900}
@@ -728,8 +901,6 @@ function DataMonitoring() {
             marginBottom={30}
             marginTop={16}
             snapToData={!isEditing}
-            xLabel={oxLabel}
-            yLabel={oyLabel}
           />
           {isAddOpen && (
             <div
@@ -759,6 +930,45 @@ function DataMonitoring() {
                   style={{ fontSize: 16, fontWeight: 600, marginBottom: 10 }}
                 >
                   Add point
+                </div>
+
+                <div className="flex gap-2">
+                  {/* existing Edit button... */}
+
+                  <button
+                    className="px-3 py-1 rounded text-sm bg-gray-700 hover:bg-gray-600"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Import
+                  </button>
+
+                  <button
+                    className="px-3 py-1 rounded text-sm bg-gray-700 hover:bg-gray-600"
+                    onClick={() =>
+                      exportSelectedToCSV(
+                        telemetryData,
+                        selectedXKey,
+                        selectedYKey,
+                      )
+                    }
+                    disabled={!telemetryData?.length}
+                    title={!telemetryData?.length ? "No data to export" : ""}
+                  >
+                    Export
+                  </button>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      handleImportFile(f);
+                      e.target.value = ""; // allow importing same file again
+                    }}
+                  />
                 </div>
 
                 <label
