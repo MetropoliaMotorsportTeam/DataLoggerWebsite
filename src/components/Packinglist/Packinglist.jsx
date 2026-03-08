@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./packinglist.css";
 
-const LS_KEY = "packing_demo_csv_v1";
-
 // ---------------------------
 // CSV helpers (same logic as HTML)
 // ---------------------------
@@ -11,10 +9,6 @@ function csvEscape(value) {
   const s = String(value);
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
-}
-
-function csvRow(fields) {
-  return fields.map(csvEscape).join(",");
 }
 
 function parseCsvLine(line) {
@@ -82,153 +76,120 @@ function defaultListName() {
 // ---------------------------
 // DB serialize/deserialize
 // ---------------------------
-function serializeDbToCsv(db) {
-  const lines = [];
-  lines.push(csvRow(["META", "nextId", db.nextId]));
-  db.structures.forEach((s) => {
-    lines.push(
-      csvRow(["STRUCT", s.id, s.sections.join("|"), s.columns.join("|")]),
-    );
-  });
-  db.lists.forEach((l) => {
-    lines.push(csvRow(["LIST", l.id, l.name, l.created, l.structureId]));
-  });
-  db.items.forEach((it) => {
-    lines.push(
-      csvRow([
-        "ITEM",
-        it.id,
-        it.listId,
-        it.packed ? "true" : "false",
-        it.item,
-        it.section,
-        it.quantity,
-        it.location,
-        it.notes,
-      ]),
-    );
-  });
-  return lines.join("\n");
-}
-
-function loadDbFromCsv(csvText) {
-  const fresh = { structures: [], lists: [], items: [], nextId: 1 };
+function parsePackingCsv(csvText, listId = 1) {
   const lines = splitLines(csvText);
-
-  for (const line of lines) {
-    const cols = parseCsvLine(line);
-    const type = cols[0];
-
-    if (type === "META" && cols[1] === "nextId") {
-      fresh.nextId = Number(cols[2] || 1) || 1;
-    } else if (type === "STRUCT") {
-      fresh.structures.push({
-        id: Number(cols[1]),
-        sections: (cols[2] || "").split("|").filter(Boolean),
-        columns: (cols[3] || "").split("|").filter(Boolean),
-      });
-    } else if (type === "LIST") {
-      fresh.lists.push({
-        id: Number(cols[1]),
-        name: cols[2] || "",
-        created: cols[3] || "",
-        structureId: Number(cols[4]),
-      });
-    } else if (type === "ITEM") {
-      fresh.items.push({
-        id: Number(cols[1]),
-        listId: Number(cols[2]),
-        packed: (cols[3] || "").toLowerCase() === "true",
-        item: cols[4] || "",
-        section: cols[5] || "",
-        quantity: Number(cols[6] || 0) || 0,
-        location: cols[7] || "",
-        notes: cols[8] || "",
-      });
-    }
+  if (!lines.length) {
+    return {
+      structures: [
+        {
+          id: 1,
+          sections: [],
+          columns: [
+            "packed",
+            "item",
+            "section",
+            "quantity",
+            "location",
+            "notes",
+          ],
+        },
+      ],
+      items: [],
+      nextId: 1,
+    };
   }
 
-  if (fresh.structures.length === 0) {
-    fresh.structures.push({
-      id: 1,
-      sections: ["Clothing", "Toiletries", "Tech", "Documents", "Misc"],
-      columns: ["packed", "item", "section", "quantity", "location", "notes"],
+  const header = parseCsvLine(lines[0]).map((h) =>
+    (h || "").trim().toLowerCase(),
+  );
+
+  const findIndex = (...names) => {
+    for (const name of names) {
+      const idx = header.indexOf(name);
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  };
+
+  const iPacked = findIndex("packed?", "packed");
+  const iItem = findIndex("item");
+  const iSection = findIndex("section");
+  const iQty = findIndex("quantity", "qty");
+  const iLocation = findIndex("location");
+  const iNotes = findIndex("notes", "note");
+
+  if (iItem < 0) {
+    throw new Error('CSV must contain an "Item" column');
+  }
+
+  const items = [];
+  let nextId = 1;
+
+  for (let r = 1; r < lines.length; r++) {
+    const cols = parseCsvLine(lines[r]);
+
+    const item = (cols[iItem] || "").trim();
+    if (!item) continue;
+
+    const packedRaw =
+      iPacked >= 0 ? (cols[iPacked] || "").trim().toLowerCase() : "";
+    const packed =
+      packedRaw === "yes" ||
+      packedRaw === "true" ||
+      packedRaw === "1" ||
+      packedRaw === "y";
+
+    items.push({
+      id: nextId++,
+      listId,
+      packed,
+      item,
+      section: iSection >= 0 ? (cols[iSection] || "").trim() : "",
+      quantity: iQty >= 0 ? Number(cols[iQty] || 0) || 0 : 0,
+      location: iLocation >= 0 ? (cols[iLocation] || "").trim() : "",
+      notes: iNotes >= 0 ? (cols[iNotes] || "").trim() : "",
     });
   }
 
-  // repair nextId if missing
-  const maxId = Math.max(
-    0,
-    ...fresh.structures.map((s) => s.id),
-    ...fresh.lists.map((l) => l.id),
-    ...fresh.items.map((i) => i.id),
+  const sections = Array.from(
+    new Set(items.map((it) => it.section).filter(Boolean)),
   );
-  if (!fresh.nextId || fresh.nextId < maxId + 1) fresh.nextId = maxId + 1;
 
-  return fresh;
+  return {
+    structures: [
+      {
+        id: 1,
+        sections,
+        columns: ["packed", "item", "section", "quantity", "location", "notes"],
+      },
+    ],
+    items,
+    nextId,
+  };
 }
 
-function seedStarterData() {
-  let nextId = 1;
-  const uid = () => nextId++;
-
-  const s = {
-    id: uid(),
-    sections: ["Clothing", "Toiletries", "Tech", "Documents", "Misc"],
-    columns: ["packed", "item", "section", "quantity", "location", "notes"],
-  };
-
-  const list = {
-    id: uid(),
-    name: defaultListName(),
-    created: new Date().toISOString(),
-    structureId: s.id,
-  };
-
-  const items = [
-    {
-      id: uid(),
-      listId: list.id,
-      packed: false,
-      item: "Socks",
-      section: "Clothing",
-      quantity: 6,
-      location: "suitcase",
-      notes: "",
-    },
-    {
-      id: uid(),
-      listId: list.id,
-      packed: true,
-      item: "Jacket",
-      section: "Clothing",
-      quantity: 1,
-      location: "wear",
-      notes: "warm",
-    },
-    {
-      id: uid(),
-      listId: list.id,
-      packed: false,
-      item: "Toothbrush",
-      section: "Toiletries",
-      quantity: 1,
-      location: "toiletry bag",
-      notes: "",
-    },
-    {
-      id: uid(),
-      listId: list.id,
-      packed: false,
-      item: "Passport",
-      section: "Documents",
-      quantity: 1,
-      location: "pocket",
-      notes: "check expiry",
-    },
+function buildPackingCsv(items) {
+  const headers = [
+    "Packed?",
+    "Item",
+    "Section",
+    "Quantity",
+    "Location",
+    "Notes",
   ];
 
-  return { structures: [s], lists: [list], items, nextId };
+  const rows = items.map((it) => [
+    it.packed ? "YES" : "NO",
+    it.item || "",
+    it.section || "",
+    it.quantity ?? "",
+    it.location || "",
+    it.notes || "",
+  ]);
+
+  return [headers, ...rows]
+    .map((row) => row.map(csvEscape).join(","))
+    .join("\n");
 }
 
 function columnLabel(c) {
@@ -244,21 +205,15 @@ function columnLabel(c) {
 }
 
 export default function Packinglist() {
-  const [db, setDb] = useState(() => {
-    const csv = localStorage.getItem(LS_KEY);
-    if (!csv) {
-      const seeded = seedStarterData();
-      localStorage.setItem(LS_KEY, serializeDbToCsv(seeded));
-      return seeded;
-    }
-    try {
-      return loadDbFromCsv(csv);
-    } catch {
-      const seeded = seedStarterData();
-      localStorage.setItem(LS_KEY, serializeDbToCsv(seeded));
-      return seeded;
-    }
+  const [db, setDb] = useState({
+    structures: [],
+    lists: [],
+    items: [],
+    nextId: 1,
   });
+
+  const [loadingLists, setLoadingLists] = useState(false);
+  const [loadingCurrentList, setLoadingCurrentList] = useState(false);
 
   const [ui, setUi] = useState({
     currentListId: null,
@@ -283,6 +238,26 @@ export default function Packinglist() {
 
   const [csvInputKey, setCsvInputKey] = useState(0);
 
+  const saveListToServer = async (list, itemsToSave) => {
+    if (!list?.key) throw new Error("No file key for current list");
+
+    const csvText = buildPackingCsv(itemsToSave);
+
+    const file = new File([csvText], list.key, { type: "text/csv" });
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("key", list.key);
+
+    const res = await fetch("http://localhost:3000/api/packinglist/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to save list to server");
+    }
+  };
+
   // ensure current list
   useEffect(() => {
     if (ui.currentListId && db.lists.some((l) => l.id === ui.currentListId))
@@ -293,10 +268,8 @@ export default function Packinglist() {
     setUi((p) => ({ ...p, currentListId: last?.id ?? null }));
   }, [db.lists, ui.currentListId]);
 
-  // persist db changes
-  useEffect(() => {
-    localStorage.setItem(LS_KEY, serializeDbToCsv(db));
-  }, [db]);
+  // persist db
+
 
   useEffect(() => {
     setDb((prev) => {
@@ -322,6 +295,75 @@ export default function Packinglist() {
     });
   }, []);
 
+  const fetchAvailableLists = async () => {
+    setLoadingLists(true);
+    try {
+      const res = await fetch("http://localhost:3000/api/packinglist");
+      if (!res.ok) throw new Error("Failed to load lists");
+
+      const data = await res.json();
+
+      const serverLists = (data.items || []).map((file, index) => ({
+        id: index + 1,
+        name: file.key.replace(/\.csv$/i, ""),
+        created: file.lastModified || new Date().toISOString(),
+        structureId: 1,
+        key: file.key,
+      }));
+
+      setDb((prev) => ({
+        ...prev,
+        lists: serverLists,
+        structures: prev.structures.length
+          ? prev.structures
+          : [
+              {
+                id: 1,
+                sections: [],
+                columns: [
+                  "packed",
+                  "item",
+                  "section",
+                  "quantity",
+                  "location",
+                  "notes",
+                ],
+              },
+            ],
+        items: [],
+      }));
+    } catch (err) {
+      console.error(err);
+      alert("Could not load packing lists from server.");
+    } finally {
+      setLoadingLists(false);
+    }
+  };
+
+  const fetchListContent = async (fileKey, listId) => {
+    setLoadingCurrentList(true);
+    try {
+      const res = await fetch(
+        `http://localhost:3000/api/packinglist/file?key=${encodeURIComponent(fileKey)}`,
+      );
+      if (!res.ok) throw new Error("Failed to load CSV");
+
+      const csvText = await res.text();
+      const parsed = parsePackingCsv(csvText, listId);
+
+      setDb((prev) => ({
+        ...prev,
+        items: parsed.items,
+        structures: parsed.structures,
+        nextId: parsed.nextId,
+      }));
+    } catch (err) {
+      console.error(err);
+      alert("Could not load selected list.");
+    } finally {
+      setLoadingCurrentList(false);
+    }
+  };
 
   const currentList = useMemo(
     () => db.lists.find((l) => l.id === ui.currentListId) || null,
@@ -403,63 +445,42 @@ export default function Packinglist() {
   ]);
 
   // -------- actions --------
-  const createNewList = (name, useLastStructure) => {
-    const created = new Date().toISOString();
-    let newListId = null;
+  const createNewList = async (name) => {
+    const cleanName = (name || "").trim() || defaultListName();
+    const fileKey = cleanName.toLowerCase().endsWith(".csv")
+      ? cleanName
+      : `${cleanName}.csv`;
 
-    setDb((prev) => {
-      const structures = [...prev.structures];
-      const lists = [...prev.lists];
+    const csvText = buildPackingCsv([]);
 
-      const newStructId = prev.nextId; // struct id
-      const listId = prev.nextId + 1; // list id (right after struct)
-      newListId = listId;
+    const file = new File([csvText], fileKey, { type: "text/csv" });
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("key", fileKey);
 
-      if (useLastStructure && prev.lists.length) {
-        const last = [...prev.lists].sort((a, b) =>
-          a.created > b.created ? -1 : 1,
-        )[0];
-        const s = prev.structures.find((x) => x.id === last.structureId);
-        structures.push({
-          id: newStructId,
-          sections: [...(s?.sections || [])],
-          columns: [...(s?.columns || [])],
-        });
-      } else {
-        structures.push({
-          id: newStructId,
-          sections: [],
-          columns: [
-            "packed",
-            "item",
-            "section",
-            "quantity",
-            "location",
-            "notes",
-          ],
-        });
-      }
-
-      lists.push({
-        id: listId,
-        name: (name || "").trim() || defaultListName(),
-        created,
-        structureId: newStructId,
+    try {
+      const res = await fetch("http://localhost:3000/api/packinglist/upload", {
+        method: "POST",
+        body: formData,
       });
 
-      return { ...prev, structures, lists, nextId: prev.nextId + 2 };
-    });
+      if (!res.ok) throw new Error("Failed to create new list");
 
-    // switch to it + reset filters + close modal
-    setUi((p) => ({
-      ...p,
-      currentListId: newListId ?? p.currentListId,
-      activeSection: "ALL",
-      itemSearch: "",
-      onlyUnpacked: false,
-      modalListName: false,
-      listNameDraft: "",
-    }));
+      await fetchAvailableLists();
+
+      setUi((p) => ({
+        ...p,
+        modalListName: false,
+        listNameDraft: "",
+        activeSection: "ALL",
+        itemSearch: "",
+        onlyPacked: false,
+        onlyUnpacked: false,
+      }));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to create list on server.");
+    }
   };
 
   const renameCurrentList = (name) => {
@@ -481,181 +502,135 @@ export default function Packinglist() {
     }));
   };
 
-  const togglePacked = (itemId) => {
-    setDb((p) => ({
-      ...p,
-      items: p.items.map((it) =>
-        it.id === itemId ? { ...it, packed: !it.packed } : it,
-      ),
-    }));
+  const togglePacked = async (itemId) => {
+    const nextItems = db.items.map((it) =>
+      it.id === itemId ? { ...it, packed: !it.packed } : it,
+    );
+
+    setDb((p) => ({ ...p, items: nextItems }));
+
+    try {
+      await saveListToServer(currentList, nextItems);
+    } catch (err) {
+      console.error(err);
+      alert("Changed locally, but failed to save to server.");
+    }
   };
 
-  const addItem = ({ packed, item, section, quantity, location, notes }) => {
+  const addItem = async ({
+    packed,
+    item,
+    section,
+    quantity,
+    location,
+    notes,
+  }) => {
     if (!currentList) {
       alert("No list selected!");
       return;
     }
 
-    setDb((prev) => {
-      const newItem = {
-        id: prev.nextId,
-        listId: currentList.id,
-        packed: !!packed,
-        item: item || "",
-        section: section || "",
-        quantity: Number(quantity) || 0,
-        location: location || "",
-        notes: notes || "",
-      };
+    const newItem = {
+      id: db.nextId,
+      listId: currentList.id,
+      packed: !!packed,
+      item: item || "",
+      section: section || "",
+      quantity: Number(quantity) || 0,
+      location: location || "",
+      notes: notes || "",
+    };
 
-      return {
-        ...prev,
-        items: [...prev.items, newItem],
-        nextId: prev.nextId + 1,
-      };
-    });
+    const nextItems = [...db.items, newItem];
 
-    setUi((p) => ({ ...p, modalItem: false }));
-  };
-
-  const updateItem = (itemId, patch) => {
-    setDb((p) => ({
-      ...p,
-      items: p.items.map((it) => (it.id === itemId ? { ...it, ...patch } : it)),
+    setDb((prev) => ({
+      ...prev,
+      items: nextItems,
+      nextId: prev.nextId + 1,
     }));
+
+    try {
+      await saveListToServer(currentList, nextItems);
+      setUi((p) => ({ ...p, modalItem: false }));
+    } catch (err) {
+      console.error(err);
+      alert("Item added locally, but failed to save to server.");
+    }
   };
 
-  const markAllShownPacked = () => {
+  const updateItem = async (itemId, patch) => {
+    const nextItems = db.items.map((it) =>
+      it.id === itemId ? { ...it, ...patch } : it,
+    );
+
+    setDb((p) => ({ ...p, items: nextItems }));
+
+    try {
+      await saveListToServer(currentList, nextItems);
+    } catch (err) {
+      console.error(err);
+      alert("Item updated locally, but failed to save to server.");
+    }
+  };
+
+  const markAllShownPacked = async () => {
     const ids = new Set(filteredItems.map((x) => x.id));
-    setDb((p) => ({
-      ...p,
-      items: p.items.map((it) =>
-        ids.has(it.id) ? { ...it, packed: true } : it,
-      ),
-    }));
+    const nextItems = db.items.map((it) =>
+      ids.has(it.id) ? { ...it, packed: true } : it,
+    );
+
+    setDb((p) => ({ ...p, items: nextItems }));
+
+    try {
+      await saveListToServer(currentList, nextItems);
+    } catch (err) {
+      console.error(err);
+      alert("Updated locally, but failed to save to server.");
+    }
   };
 
-  const deletePackedShown = () => {
+  const deletePackedShown = async () => {
     if (!confirm("Delete all packed items currently shown?")) return;
+
     const ids = new Set(filteredItems.filter((x) => x.packed).map((x) => x.id));
-    setDb((p) => ({ ...p, items: p.items.filter((it) => !ids.has(it.id)) }));
+    const nextItems = db.items.filter((it) => !ids.has(it.id));
+
+    setDb((p) => ({ ...p, items: nextItems }));
+
+    try {
+      await saveListToServer(currentList, nextItems);
+    } catch (err) {
+      console.error(err);
+      alert("Deleted locally, but failed to save to server.");
+    }
   };
 
   const importCsvToCurrentList = async (file) => {
-    if (!currentList) {
-      alert("No list selected!");
-      return;
-    }
-    if (!file) return;
+    if (!currentList || !file) return;
 
-    const text = await file.text();
-    const lines = splitLines(text);
-    if (!lines.length) {
-      alert("CSV is empty.");
-      return;
-    }
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("key", currentList.key);
 
-    // Parse header
-    const header = parseCsvLine(lines[0]).map((h) =>
-      (h || "").trim().toLowerCase(),
-    );
-    const idx = (name) => header.indexOf(name);
-
-    // Support a few common header variants
-    const iPacked = idx("packed?") >= 0 ? idx("packed?") : idx("packed");
-    const iItem = idx("item");
-    const iSection = idx("section");
-    const iQty = idx("quantity") >= 0 ? idx("quantity") : idx("qty");
-    const iLoc = idx("location");
-    const iNotes = idx("notes");
-
-    if (iItem < 0) {
-      alert('CSV must have at least an "Item" column.');
-      return;
-    }
-
-    setDb((prev) => {
-      // Remove current list items
-      const kept = prev.items.filter((it) => it.listId !== currentList.id);
-
-      let nextId = prev.nextId;
-      const imported = [];
-
-      for (let r = 1; r < lines.length; r++) {
-        const cols = parseCsvLine(lines[r]);
-
-        const packedRaw =
-          iPacked >= 0 ? (cols[iPacked] || "").trim().toLowerCase() : "";
-        const packed =
-          packedRaw === "true" ||
-          packedRaw === "1" ||
-          packedRaw === "yes" ||
-          packedRaw === "y";
-
-        const item = (cols[iItem] || "").trim();
-        if (!item) continue; // skip empty rows
-
-        const section = iSection >= 0 ? (cols[iSection] || "").trim() : "";
-        const quantity = iQty >= 0 ? Number((cols[iQty] || "").trim()) || 0 : 0;
-        const location = iLoc >= 0 ? (cols[iLoc] || "").trim() : "";
-        const notes = iNotes >= 0 ? (cols[iNotes] || "").trim() : "";
-
-        imported.push({
-          id: nextId++,
-          listId: currentList.id,
-          packed,
-          item,
-          section,
-          quantity,
-          location,
-          notes,
-        });
-      }
-
-      return {
-        ...prev,
-        items: [...kept, ...imported],
-        nextId,
-      };
+    const res = await fetch("http://localhost:3000/api/packinglist/upload", {
+      method: "POST",
+      body: formData,
     });
 
-    // Optional: reset filters so user sees imported stuff
-    setUi((p) => ({
-      ...p,
-      activeSection: "ALL",
-      itemSearch: "",
-      onlyPacked: false,
-      onlyUnpacked: false,
-    }));
+    if (!res.ok) {
+      alert("Failed to upload CSV to server.");
+      return;
+    }
 
-    alert("CSV loaded into the current list!");
+    await fetchListContent(currentList.key, currentList.id);
+    alert("CSV uploaded successfully.");
   };
 
   const exportCsv = () => {
     if (!currentList) return;
 
     const items = db.items.filter((it) => it.listId === currentList.id);
-    const headers = [
-      "Packed?",
-      "Item",
-      "Section",
-      "Quantity",
-      "Location",
-      "Notes",
-    ];
-
-    const rows = items.map((it) => [
-      it.packed ? "YES" : "NO",
-      it.item || "",
-      it.section || "",
-      it.quantity ?? "",
-      it.location || "",
-      it.notes || "",
-    ]);
-
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map(csvEscape).join(","))
-      .join("\n");
+    const csvContent = buildPackingCsv(items);
 
     const blob = new Blob([csvContent], {
       type: "text/csv;charset=utf-8;",
@@ -671,6 +646,10 @@ export default function Packinglist() {
     URL.revokeObjectURL(url);
   };
 
+  useEffect(() => {
+    fetchAvailableLists();
+  }, []);
+
   // -------- UI --------
   return (
     <div>
@@ -679,7 +658,7 @@ export default function Packinglist() {
           <div className="brand">
             <span className="dot" />
             <span>Packing List</span>
-            <span className="badge">CSV: localStorage</span>
+            <span className="badge">CSV: server</span>
           </div>
 
           <div className="actions">
@@ -762,15 +741,18 @@ export default function Packinglist() {
                     <div
                       key={l.id}
                       className={"listItem" + (active ? " active" : "")}
-                      onClick={() =>
+                      onClick={() => {
                         setUi((p) => ({
                           ...p,
                           currentListId: l.id,
                           activeSection: "ALL",
                           itemSearch: "",
                           onlyUnpacked: false,
-                        }))
-                      }
+                          onlyPacked: false,
+                        }));
+
+                        fetchListContent(l.key, l.id);
+                      }}
                     >
                       <div style={{ minWidth: 0 }}>
                         <div
@@ -1218,16 +1200,15 @@ export default function Packinglist() {
               </button>
               <button
                 className="primary"
-                disabled={!ui.editItemId}
-                onClick={() =>
-                  setUi((p) => ({
-                    ...p,
-                    modalEditItem: false,
-                    editItemId: null,
-                  }))
-                }
-              >
-                Save
+                  onClick={() => {
+                    if (ui.listNameMode === "new") {
+                      createNewList(ui.listNameDraft);
+                    } else {
+                      renameCurrentList(ui.listNameDraft);
+                    }
+                  }}
+                >
+                  Save
               </button>
             </div>
           </div>
