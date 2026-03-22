@@ -11,6 +11,8 @@ function csvEscape(value) {
   return s;
 }
 
+const API_URL = import.meta.env.VITE_API_BASE;
+
 function parseCsvLine(line) {
   const out = [];
   let i = 0,
@@ -248,7 +250,7 @@ export default function Packinglist() {
     formData.append("file", file);
     formData.append("key", list.key);
 
-    const res = await fetch("http://localhost:3000/api/packinglist/upload", {
+    const res = await fetch(`${API_URL}/packinglist/upload`, {
       method: "POST",
       body: formData,
     });
