@@ -303,13 +303,33 @@ export default function Packinglist() {
 
       const data = await res.json();
 
-      const serverLists = (data.items || []).map((file, index) => ({
-        id: index + 1,
-        name: file.key.replace(/\.csv$/i, ""),
-        created: file.lastModified || new Date().toISOString(),
-        structureId: 1,
-        key: file.key,
-      }));
+      const serverLists = await Promise.all(
+        (data.items || []).map(async (file, index) => {
+          let itemCount = 0;
+
+          try {
+            const fileRes = await fetch(
+              `http://localhost:3000/api/packinglist/${encodeURIComponent(file.key)}`,
+            );
+            if (fileRes.ok) {
+              const csvText = await fileRes.text();
+              const parsed = parsePackingCsv(csvText, index + 1);
+              itemCount = parsed.items.length;
+            }
+          } catch (err) {
+            console.error("Failed counting items for", file.key, err);
+          }
+
+          return {
+            id: index + 1,
+            name: file.key.replace(/\.csv$/i, ""),
+            created: file.lastModified || new Date().toISOString(),
+            structureId: 1,
+            key: file.key,
+            itemCount,
+          };
+        }),
+      );
 
       setDb((prev) => ({
         ...prev,
@@ -356,6 +376,9 @@ export default function Packinglist() {
         items: parsed.items,
         structures: parsed.structures,
         nextId: parsed.nextId,
+        lists: prev.lists.map((l) =>
+          l.id === listId ? { ...l, itemCount: parsed.items.length } : l,
+        ),
       }));
     } catch (err) {
       console.error(err);
@@ -733,10 +756,9 @@ export default function Packinglist() {
 
               <div className="list">
                 {filteredLists.map((l) => {
-                  const itemCount = db.items.filter(
-                    (it) => it.listId === l.id,
-                  ).length;
+                  const itemCount = l.itemCount ?? 0;
                   const active = l.id === ui.currentListId;
+
                   return (
                     <div
                       key={l.id}
@@ -1200,15 +1222,15 @@ export default function Packinglist() {
               </button>
               <button
                 className="primary"
-                  onClick={() => {
-                    if (ui.listNameMode === "new") {
-                      createNewList(ui.listNameDraft);
-                    } else {
-                      renameCurrentList(ui.listNameDraft);
-                    }
-                  }}
-                >
-                  Save
+                onClick={() => {
+                  if (ui.listNameMode === "new") {
+                    createNewList(ui.listNameDraft);
+                  } else {
+                    renameCurrentList(ui.listNameDraft);
+                  }
+                }}
+              >
+                Save
               </button>
             </div>
           </div>
