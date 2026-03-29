@@ -15,6 +15,7 @@ function Layout({ children }) {
 
   const handleLogout = () => {
     sessionStorage.removeItem("auth");
+    sessionStorage.removeItem("token");
     window.location.href = "/login";
   };
 
