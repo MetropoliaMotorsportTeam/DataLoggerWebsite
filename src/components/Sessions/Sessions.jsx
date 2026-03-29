@@ -4,12 +4,19 @@ import "./Sessions.css";
 
 const API_URL = import.meta.env.VITE_API_BASE;
 
+const defaultColumns = [
+  { key: "startTime", name: "Session start time" },
+  { key: "user", name: "User who made it" },
+  { key: "name", name: "Name of session" },
+];
+
 const Sessions = () => {
-  const [columns, setColumns] = useState([
-    { key: "startTime", name: "Session start time" },
-  ]);
+  const [columns] = useState(defaultColumns);
   const [data, setData] = useState([]);
   const [editingCell, setEditingCell] = useState(null);
+  const [descriptionModal, setDescriptionModal] = useState({ open: false, rowIndex: null });
+  const [descriptionEditing, setDescriptionEditing] = useState(false);
+  const [modalDescription, setModalDescription] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -30,12 +37,14 @@ const Sessions = () => {
 
       const board = await res.json();
 
-      setColumns(
-        board.columns?.length
-          ? board.columns
-          : [{ key: "startTime", name: "Session start time" }],
+      setData(
+        (board.data || []).map((row) => ({
+          startTime: row.startTime || new Date().toISOString(),
+          user: row.user || "",
+          name: row.name || "",
+          description: row.description || "",
+        })),
       );
-      setData(board.data || []);
     } catch (err) {
       console.error("Failed to load sessions", err);
     } finally {
@@ -44,26 +53,26 @@ const Sessions = () => {
   };
 
   const saveBoard = async (nextColumns, nextData) => {
-    try {
-      setSaving(true);
-      const res = await fetch(API_URL, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          columns: nextColumns,
-          data: nextData,
-        }),
-      });
+  try {
+    setSaving(true);
+    const res = await fetch(`${API_URL}/sessions`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        columns: nextColumns,
+        data: nextData,
+      }),
+    });
 
-      if (!res.ok) throw new Error("Failed to save sessions");
-    } catch (err) {
-      console.error("Failed to save sessions", err);
-    } finally {
-      setSaving(false);
-    }
-  };
+    if (!res.ok) throw new Error("Failed to save sessions");
+  } catch (err) {
+    console.error("Failed to save sessions", err);
+  } finally {
+    setSaving(false);
+  }
+};
 
   useEffect(() => {
     fetchBoard();
@@ -75,48 +84,54 @@ const Sessions = () => {
     }
   }, [editingCell]);
 
-  const handleAddColumn = async () => {
-    const name = window.prompt("Enter the name for the new parameter:");
-    if (!name || name.trim() === "") return;
-
-    if (columns.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
-      alert("A parameter with this name already exists.");
-      return;
-    }
-
-    const key =
-      name
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]/g, "") +
-      "_" +
-      Date.now();
-
-    const nextColumns = [...columns, { key, name: name.trim() }];
-    const nextData = data.map((row) => ({
-      ...row,
-      [key]: "",
-    }));
-
-    setColumns(nextColumns);
-    setData(nextData);
-    await saveBoard(nextColumns, nextData);
+  const isValidSession = (session) => {
+    return Boolean(
+      session.user && session.user.toString().trim() !== "" &&
+      session.name && session.name.toString().trim() !== ""
+    );
   };
 
   const handleAddSession = async () => {
-    const newSession = {};
+    if (data.some((row) => !isValidSession(row))) {
+      alert("Please fill User and Name of session for all existing sessions before adding a new one.");
+      return;
+    }
 
-    columns.forEach((col) => {
-      if (col.key === "startTime") {
-        newSession[col.key] = new Date().toISOString();
-      } else {
-        newSession[col.key] = "";
-      }
-    });
+    const newSession = {
+      startTime: new Date().toISOString(),
+      user: "",
+      name: "",
+      description: "",
+    };
 
     const nextData = [...data, newSession];
     setData(nextData);
     await saveBoard(columns, nextData);
+  };
+
+  const openDescription = (rowIndex) => {
+    setDescriptionModal({ open: true, rowIndex });
+    setModalDescription(data[rowIndex]?.description || "");
+    setDescriptionEditing(false);
+  };
+
+  const closeDescription = async (save = false) => {
+    if (save && descriptionModal.rowIndex !== null && descriptionEditing) {
+      const newData = [...data];
+      newData[descriptionModal.rowIndex] = {
+        ...newData[descriptionModal.rowIndex],
+        description: modalDescription,
+      };
+      setData(newData);
+      await saveBoard(columns, newData);
+      // stay in view mode, keep modal open
+      setDescriptionEditing(false);
+      return;
+    }
+
+    setDescriptionModal({ open: false, rowIndex: null });
+    setDescriptionEditing(false);
+    setModalDescription("");
   };
 
   const handleCellClick = (rowIndex, colKey) => {
@@ -136,12 +151,22 @@ const Sessions = () => {
   };
 
   const handleBlur = async () => {
+    if (editingCell && data[editingCell.rowIndex]) {
+      if (!isValidSession(data[editingCell.rowIndex])) {
+        alert("Session must contain both User and Name values.");
+      }
+    }
     setEditingCell(null);
     await saveBoard(columns, data);
   };
 
   const handleKeyDown = async (e) => {
     if (e.key === "Enter") {
+      if (editingCell && data[editingCell.rowIndex]) {
+        if (!isValidSession(data[editingCell.rowIndex])) {
+          alert("Session must contain both User and Name values.");
+        }
+      }
       setEditingCell(null);
       await saveBoard(columns, data);
     }
@@ -171,25 +196,12 @@ const Sessions = () => {
   return (
     <div className="sessions-container">
       <div className="controls">
-        <button className="btn btn-secondary" onClick={handleAddColumn}>
-          + Add Parameter (Column)
-        </button>
-
         <button className="btn btn-primary" onClick={handleAddSession}>
-          + Add Session (Row)
+          + Add Session
         </button>
 
         {data.length > 0 && (
           <>
-            <CSVLink
-              data={getCsvData()}
-              filename={`test-sessions-${new Date().toISOString().split("T")[0]}.csv`}
-              className="btn btn-primary"
-              style={{ textDecoration: "none", display: "inline-block" }}
-            >
-              Export to CSV
-            </CSVLink>
-
             <button className="btn btn-danger" onClick={handleClearData}>
               Clear Data
             </button>
@@ -200,6 +212,59 @@ const Sessions = () => {
           <span style={{ marginLeft: "10px", color: "#888" }}>Saving...</span>
         )}
       </div>
+
+      {descriptionModal.open && (
+        <div className="description-modal-backdrop">
+          <div className="description-modal">
+            <h3>Session Description</h3>
+            {!descriptionEditing ? (
+              <>
+                <div className="description-view">
+                  {modalDescription ? modalDescription : "No description yet."}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => closeDescription(false)}
+                  >
+                    Close
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => setDescriptionEditing(true)}
+                  >
+                    Edit
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <textarea
+                  value={modalDescription}
+                  onChange={(e) => setModalDescription(e.target.value)}
+                  rows={12}
+                  style={{ width: "100%", marginBottom: "12px" }}
+                />
+                <div style={{ textAlign: "right" }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setDescriptionEditing(false)}
+                    style={{ marginRight: "8px" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => closeDescription(true)}
+                  >
+                    Save
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="table-wrapper">
         <table className="sessions-table">
@@ -242,6 +307,11 @@ const Sessions = () => {
                           isReadOnly ? "cell-readonly" : "cell-editable"
                         }
                         onClick={() => handleCellClick(rowIndex, col.key)}
+                        onDoubleClick={() => {
+                          if (col.key !== "startTime") {
+                            setEditingCell({ rowIndex, colKey: col.key });
+                          }
+                        }}
                       >
                         {isEditing ? (
                           <input
@@ -255,6 +325,19 @@ const Sessions = () => {
                           />
                         ) : col.key === "startTime" && row[col.key] ? (
                           new Date(row[col.key]).toLocaleString()
+                        ) : col.key === "name" ? (
+                          <div className="session-name-cell">
+                            <span>{row.name || "(no name)"}</span>
+                            <button
+                              className="btn btn-secondary btn-details"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDescription(rowIndex);
+                              }}
+                            >
+                              Details
+                            </button>
+                          </div>
                         ) : (
                           row[col.key]
                         )}
