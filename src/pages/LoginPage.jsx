@@ -51,7 +51,7 @@ function Login() {
           onChange={(e) => setPin(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           maxLength={4}
-          placeholder="•••"
+          placeholder="••••"
           className={`w-full bg-gray-800 border ${
             error ? "border-red-500" : "border-gray-700"
           } rounded-lg p-3 text-center text-xl tracking-widest text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500`}
