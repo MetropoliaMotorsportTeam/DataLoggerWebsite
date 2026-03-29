@@ -19,8 +19,9 @@ function Login() {
         body: JSON.stringify({ pincode: pin })
       });
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.ok && data.success && data.token) {
         sessionStorage.setItem("auth", "true");
+        sessionStorage.setItem("token", data.token);
         navigate("/");
       } else {
         setError("Invalid PIN");

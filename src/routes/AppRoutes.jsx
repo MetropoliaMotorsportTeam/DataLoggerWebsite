@@ -7,6 +7,7 @@ import SettingsPage from "../pages/SettingsPage";
 import SessionsPage from "../pages/SessionsPage";
 import Packinglist from "../pages/PackingList";
 import LoginPage from "../pages/LoginPage";
+// import CreateUser from "../pages/CreateUser";
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = sessionStorage.getItem("auth") === "true";
@@ -14,9 +15,11 @@ function ProtectedRoute({ children }) {
 }
 
 function AppRoutes() {
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* /create-user route removed as requested */}
 
       <Route
         path="/"
