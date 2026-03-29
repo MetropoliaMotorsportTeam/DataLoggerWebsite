@@ -70,6 +70,8 @@
   padding: 12px 15px;
   text-align: left;
   border-bottom: 1px solid #eee;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .sessions-table th {
@@ -138,9 +140,14 @@
 
 .session-name-cell {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+}
+
+.sessions-table th,
+.sessions-table td {
+  vertical-align: top;
 }
 
 .btn-details {
