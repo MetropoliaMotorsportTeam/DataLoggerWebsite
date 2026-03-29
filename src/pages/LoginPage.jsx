@@ -1,18 +1,36 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+
 function Login() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = () => {
-    if (pin === "123") {
-      sessionStorage.setItem("auth", "true");
-      navigate("/");
-    } else {
-      setError("Invalid PIN");
-      setPin("");
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE || "";
+      const res = await fetch(`${apiBase}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pincode: pin })
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.token) {
+        sessionStorage.setItem("auth", "true");
+        sessionStorage.setItem("token", data.token);
+        navigate("/");
+      } else {
+        setError("Invalid PIN");
+        setPin("");
+      }
+    } catch (e) {
+      setError("Network error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -32,7 +50,7 @@ function Login() {
           value={pin}
           onChange={(e) => setPin(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          maxLength={3}
+          maxLength={4}
           placeholder="•••"
           className={`w-full bg-gray-800 border ${
             error ? "border-red-500" : "border-gray-700"

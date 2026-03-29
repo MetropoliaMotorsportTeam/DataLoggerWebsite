@@ -13,6 +13,12 @@ function Layout({ children }) {
     { name: 'Packing List', path: '/packinglist' },
   ];
 
+  const handleLogout = () => {
+    sessionStorage.removeItem("auth");
+    sessionStorage.removeItem("token");
+    window.location.href = "/login";
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-black text-gray-200" style={{ fontFamily: "'Roboto Mono', monospace" }}>
       {/* Header */}
@@ -46,6 +52,12 @@ function Layout({ children }) {
                   {item.name}
                 </Link>
               ))}
+              <button
+                onClick={handleLogout}
+                className="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors duration-200"
+              >
+                Logout
+              </button>
             </nav>
 
             {/* Mobile Menu Placeholder (optional) */}
@@ -72,6 +84,12 @@ function Layout({ children }) {
               {item.name}
             </Link>
           ))}
+          <button
+            onClick={handleLogout}
+            className="flex-shrink-0 text-sm px-3 py-1.5 rounded-md bg-red-600 text-white ml-2 hover:bg-red-700"
+          >
+            Logout
+          </button>
         </div>
       </div>
 
