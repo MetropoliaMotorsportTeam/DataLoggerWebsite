@@ -92,11 +92,6 @@ const Sessions = () => {
   };
 
   const handleAddSession = async () => {
-    if (data.some((row) => !isValidSession(row))) {
-      alert("Please fill User and Name of session for all existing sessions before adding a new one.");
-      return;
-    }
-
     const newSession = {
       startTime: new Date().toISOString(),
       user: "",
