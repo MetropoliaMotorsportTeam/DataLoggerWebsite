@@ -145,6 +145,23 @@
   gap: 8px;
 }
 
+/* make the name column shorter so the Details button appears closer */
+.col-name {
+  width: 320px;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-name-cell span {
+  display: inline-block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sessions-table th,
 .sessions-table td {
   vertical-align: top;
@@ -200,6 +217,12 @@
 
 .description-modal textarea {
   min-height: 260px;
+}
+
+/* Make list items inside modals (delete column/session lists) darker for readability */
+.description-modal ul li,
+.description-modal ul li div {
+  color: #1f2937;
 }
 
 
