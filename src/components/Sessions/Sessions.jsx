@@ -11,7 +11,7 @@ const defaultColumns = [
 ];
 
 const Sessions = () => {
-  const [columns] = useState(defaultColumns);
+  const [columns, setColumns] = useState(defaultColumns);
   const [data, setData] = useState([]);
   const [editingCell, setEditingCell] = useState(null);
   const [descriptionModal, setDescriptionModal] = useState({ open: false, rowIndex: null });
@@ -19,6 +19,8 @@ const Sessions = () => {
   const [modalDescription, setModalDescription] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({ open: false });
+  const [deleteSessionModal, setDeleteSessionModal] = useState({ open: false });
 
   const inputRef = useRef(null);
 
@@ -37,14 +39,30 @@ const Sessions = () => {
 
       const board = await res.json();
 
-      setData(
-        (board.data || []).map((row) => ({
-          startTime: row.startTime || new Date().toISOString(),
-          user: row.user || "",
-          name: row.name || "",
-          description: row.description || "",
-        })),
-      );
+      // initialize columns from server if provided, otherwise use defaults
+      const initialColumns = board.columns && board.columns.length ? board.columns : defaultColumns;
+
+      // swap startTime and user positions
+      const swappedColumns = [...initialColumns];
+      const iStart = swappedColumns.findIndex((c) => c.key === "startTime");
+      const iUser = swappedColumns.findIndex((c) => c.key === "user");
+      if (iStart !== -1 && iUser !== -1) {
+        [swappedColumns[iStart], swappedColumns[iUser]] = [swappedColumns[iUser], swappedColumns[iStart]];
+      }
+
+      setColumns(swappedColumns);
+
+      const normalizedData = (board.data || []).map((row) => ({
+        startTime: row.startTime || new Date().toISOString(),
+        user: row.user || "",
+        name: row.name || "",
+        description: row.description || "",
+      }));
+
+      setData(normalizedData);
+
+      // persist swapped column order back to server so UI and backend match
+      await saveBoard(swappedColumns, normalizedData);
     } catch (err) {
       console.error("Failed to load sessions", err);
     } finally {
@@ -92,11 +110,6 @@ const Sessions = () => {
   };
 
   const handleAddSession = async () => {
-    if (data.some((row) => !isValidSession(row))) {
-      alert("Please fill User and Name of session for all existing sessions before adding a new one.");
-      return;
-    }
-
     const newSession = {
       startTime: new Date().toISOString(),
       user: "",
@@ -106,6 +119,64 @@ const Sessions = () => {
 
     const nextData = [...data, newSession];
     setData(nextData);
+    await saveBoard(columns, nextData);
+  };
+
+  const handleAddColumn = async () => {
+    const name = window.prompt("Enter new column name:");
+    if (!name) return;
+
+    const trimmed = name.toString().trim();
+    if (!trimmed) {
+      alert("Column name cannot be empty.");
+      return;
+    }
+
+    // create a simple key from the name
+    const baseKey = trimmed.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "").toLowerCase();
+    let key = baseKey || `col_${Date.now()}`;
+    // ensure unique key
+    let suffix = 1;
+    const existingKeys = new Set(columns.map((c) => c.key));
+    while (existingKeys.has(key)) {
+      key = `${baseKey}_${suffix}`;
+      suffix += 1;
+    }
+
+    const nextColumns = [...columns, { key, name: trimmed }];
+    // add empty value for existing rows
+    const nextData = data.map((row) => ({ ...row, [key]: "" }));
+
+    setColumns(nextColumns);
+    setData(nextData);
+
+    await saveBoard(nextColumns, nextData);
+  };
+
+  const handleDeleteColumn = async (colKey) => {
+    if (!window.confirm("Are you sure you want to delete this column?")) return;
+
+    const nextColumns = columns.filter((c) => c.key !== colKey);
+    const nextData = data.map((row) => {
+      const newRow = { ...row };
+      delete newRow[colKey];
+      return newRow;
+    });
+
+    setColumns(nextColumns);
+    setData(nextData);
+    setEditingCell(null);
+    setDeleteModal({ open: false });
+    await saveBoard(nextColumns, nextData);
+  };
+
+  const handleDeleteSession = async (rowIndex) => {
+    if (!window.confirm("Are you sure you want to delete this session?")) return;
+
+    const nextData = data.filter((_, i) => i !== rowIndex);
+    setData(nextData);
+    setEditingCell(null);
+    setDeleteSessionModal({ open: false });
     await saveBoard(columns, nextData);
   };
 
@@ -151,22 +222,12 @@ const Sessions = () => {
   };
 
   const handleBlur = async () => {
-    if (editingCell && data[editingCell.rowIndex]) {
-      if (!isValidSession(data[editingCell.rowIndex])) {
-        alert("Session must contain both User and Name values.");
-      }
-    }
     setEditingCell(null);
     await saveBoard(columns, data);
   };
 
   const handleKeyDown = async (e) => {
     if (e.key === "Enter") {
-      if (editingCell && data[editingCell.rowIndex]) {
-        if (!isValidSession(data[editingCell.rowIndex])) {
-          alert("Session must contain both User and Name values.");
-        }
-      }
       setEditingCell(null);
       await saveBoard(columns, data);
     }
@@ -184,7 +245,7 @@ const Sessions = () => {
   };
 
   const getCsvData = () => {
-    const csvHeaders = columns.map((c) => c.name);
+    const csvHeaders = columns.map((c) => `${c.name}`);
     const csvRows = data.map((row) => columns.map((c) => row[c.key]));
     return [csvHeaders, ...csvRows];
   };
@@ -196,21 +257,59 @@ const Sessions = () => {
   return (
     <div className="sessions-container">
       <div className="controls">
-        <button className="btn btn-primary" onClick={handleAddSession}>
-          + Add Session
-        </button>
+        <div className="controls-left">
+          <button className="btn btn-primary" onClick={handleAddSession}>
+            + Add Session
+          </button>
 
-        {data.length > 0 && (
-          <>
+          <button
+            className="btn btn-primary"
+            onClick={handleAddColumn}
+            style={{ marginLeft: "8px" }}
+          >
+            + Add Column
+          </button>
+
+          {data.length > 0 && (
+            <>
+              <button
+                className="btn btn-warning"
+                onClick={() => setDeleteModal({ open: true })}
+                style={{ marginLeft: "8px" }}
+              >
+                - Delete Column
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={() => setDeleteSessionModal({ open: true })}
+                style={{ marginLeft: "8px" }}
+              >
+                - Delete Session
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="controls-right">
+          {data.length > 0 && (
             <button className="btn btn-danger" onClick={handleClearData}>
               Clear Data
             </button>
-          </>
-        )}
+          )}
 
-        {saving && (
-          <span style={{ marginLeft: "10px", color: "#888" }}>Saving...</span>
-        )}
+          <CSVLink
+            data={getCsvData()}
+            filename={"sessions.csv"}
+            className="btn btn-secondary"
+            style={{ marginLeft: "8px" }}
+          >
+            Export CSV
+          </CSVLink>
+
+          {saving && (
+            <span style={{ marginLeft: "10px", color: "#888" }}>Saving...</span>
+          )}
+        </div>
       </div>
 
       {descriptionModal.open && (
@@ -222,7 +321,9 @@ const Sessions = () => {
                 <div className="description-view">
                   {modalDescription ? modalDescription : "No description yet."}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
                   <button
                     className="btn btn-secondary"
                     onClick={() => closeDescription(false)}
@@ -266,12 +367,116 @@ const Sessions = () => {
         </div>
       )}
 
+      {deleteModal.open && (
+        <div className="description-modal-backdrop">
+          <div className="description-modal">
+            <h3>Delete Column</h3>
+            {columns.length === 0 ? (
+              <div>No columns available.</div>
+            ) : (
+              <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {columns.map((col, i) => (
+                    <li
+                      key={col.key}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "6px 0",
+                        borderBottom: "1px solid #eee",
+                      }}
+                    >
+                      <div>
+                        <strong>{i + 1}.</strong>&nbsp;{col.name}
+                      </div>
+                      <div>
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => handleDeleteColumn(col.key)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div style={{ textAlign: "right", marginTop: 12 }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setDeleteModal({ open: false })}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteSessionModal.open && (
+        <div className="description-modal-backdrop">
+          <div className="description-modal">
+            <h3>Delete Session</h3>
+            {data.length === 0 ? (
+              <div>No sessions available.</div>
+            ) : (
+              <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {data.map((row, i) => (
+                    <li
+                      key={i}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "6px 0",
+                        borderBottom: "1px solid #eee",
+                      }}
+                    >
+                      <div>
+                        <strong>{i + 1}.</strong>&nbsp;{row.name || "(no name)"}{" "}
+                        — {row.user || "(no user)"}
+                      </div>
+                      <div>
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => handleDeleteSession(i)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div style={{ textAlign: "right", marginTop: 12 }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setDeleteSessionModal({ open: false })}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="table-wrapper">
         <table className="sessions-table">
           <thead>
             <tr>
               {columns.map((col) => (
-                <th key={col.key}>{col.name}</th>
+                <th
+                  key={col.key}
+                  className={col.key === "name" ? "col-name" : undefined}
+                >
+                  {col.name}
+                </th>
               ))}
             </tr>
           </thead>
@@ -303,9 +508,7 @@ const Sessions = () => {
                     return (
                       <td
                         key={col.key}
-                        className={
-                          isReadOnly ? "cell-readonly" : "cell-editable"
-                        }
+                        className={`${isReadOnly ? "cell-readonly" : "cell-editable"} ${col.key === "name" ? "col-name" : ""}`}
                         onClick={() => handleCellClick(rowIndex, col.key)}
                         onDoubleClick={() => {
                           if (col.key !== "startTime") {
