@@ -53,6 +53,7 @@ const Sessions = () => {
       setColumns(swappedColumns);
 
       const normalizedData = (board.data || []).map((row) => ({
+        ...row,
         startTime: row.startTime || new Date().toISOString(),
         user: row.user || "",
         name: row.name || "",
