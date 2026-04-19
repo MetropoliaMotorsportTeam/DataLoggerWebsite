@@ -300,7 +300,7 @@ export default function Packinglist() {
   const fetchAvailableLists = async () => {
     setLoadingLists(true);
     try {
-      const res = await fetch("http://localhost:3000/api/packinglist");
+      const res = await fetch(`${API_URL}/packinglist`);
       if (!res.ok) throw new Error("Failed to load lists");
 
       const data = await res.json();
@@ -311,7 +311,7 @@ export default function Packinglist() {
 
           try {
             const fileRes = await fetch(
-              `http://localhost:3000/api/packinglist/${encodeURIComponent(file.key)}`,
+              `${API_URL}/packinglist/${encodeURIComponent(file.key)}`,
             );
             if (fileRes.ok) {
               const csvText = await fileRes.text();
@@ -366,7 +366,7 @@ export default function Packinglist() {
     setLoadingCurrentList(true);
     try {
       const res = await fetch(
-        `http://localhost:3000/api/packinglist/file?key=${encodeURIComponent(fileKey)}`,
+        `${API_URL}/packinglist/file?key=${encodeURIComponent(fileKey)}`,
       );
       if (!res.ok) throw new Error("Failed to load CSV");
 
@@ -484,7 +484,7 @@ export default function Packinglist() {
     formData.append("key", fileKey);
 
     try {
-      const res = await fetch("http://localhost:3000/api/packinglist/upload", {
+      const res = await fetch(`${API_URL}/packinglist/upload`, {
         method: "POST",
         body: formData,
       });
