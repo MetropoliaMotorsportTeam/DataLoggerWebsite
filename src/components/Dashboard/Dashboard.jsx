@@ -1,6 +1,5 @@
 import React from 'react';
 
-// A dedicated component for status indicators for cleaner code
 function StatusIndicator({ label, status = 'ok' }) {
   const statusConfig = {
     ok: { color: 'bg-green-500', text: 'Operational' },
@@ -21,7 +20,7 @@ function StatusIndicator({ label, status = 'ok' }) {
   );
 }
 
-function Home() {
+function Dashboard() {
   // Mock data for system statuses
   const systemStatuses = [
     { name: 'Battery', status: 'ok' },
@@ -43,6 +42,7 @@ function Home() {
           <p className="text-gray-400">
             High-level overview of the vehicle's core systems.
           </p>
+          <b>*Note: This is a mockup and does not reflect real-time data.*</b>
         </div>
         
         {/* System Status Card */}
@@ -55,20 +55,10 @@ function Home() {
           </div>
         </div>
 
-        {/* Placeholder for more dashboard widgets */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-5 shadow-2xl h-64">
-                <h2 className="text-xl font-semibold mb-4 text-gray-100">Tire Temperatures</h2>
-                <p className="text-gray-500">Widget placeholder...</p>
-            </div>
-            <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-5 shadow-2xl h-64">
-                <h2 className="text-xl font-semibold mb-4 text-gray-100">Lap Times</h2>
-                <p className="text-gray-500">Widget placeholder...</p>
-            </div>
-        </div>
+        
       </div>
     </div>
   );
 }
 
-export default Home;
+export default Dashboard;
