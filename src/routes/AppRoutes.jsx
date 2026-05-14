@@ -1,13 +1,13 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "../components/Layout/Layout";
-import HomePage from "../pages/HomePage";
+import DashboardPage from "../pages/DashboardPage";
 import FirmwarePage from "../pages/FirmwarePage";
 import DataPage from "../pages/DataPage";
 import SettingsPage from "../pages/SettingsPage";
 import SessionsPage from "../pages/SessionsPage";
 import Packinglist from "../pages/PackingList";
 import LoginPage from "../pages/LoginPage";
-// import CreateUser from "../pages/CreateUser";
+
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = sessionStorage.getItem("auth") === "true";
@@ -19,14 +19,14 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      {/* /create-user route removed as requested */}
+    
 
       <Route
         path="/"
         element={
           <ProtectedRoute>
             <Layout>
-              <HomePage />
+              <DashboardPage />
             </Layout>
           </ProtectedRoute>
         }
