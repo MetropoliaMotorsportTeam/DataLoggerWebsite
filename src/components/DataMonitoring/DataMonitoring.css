@@ -1,3 +1,11 @@
+.data-monitoring-container {
+  font-family: 'Roboto Mono', monospace;
+  background-color: var(--background-base);
+  color: var(--text-primary);
+  padding: 1.5rem; /* Corresponds to md:p-6 */
+  min-height: 100vh;
+}
+
 /* Custom scrollbar for the dropdown menu */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
