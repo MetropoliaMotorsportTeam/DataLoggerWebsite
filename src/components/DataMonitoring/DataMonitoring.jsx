@@ -7,10 +7,10 @@ const MAX_DATA_POINTS = 100;
 
 // --- Configuration ---
 const SIGNAL_CONFIG = {
-  temp: { color: '#38BDF8', unit: '°C' },
-  vol: { color: '#34D399', unit: 'V' },
-  power: { color: '#FBBF24', unit: 'W' },
-  default: { color: '#A78BFA', unit: '' },
+  temp: { color: 'var(--accent-highlight)', unit: '°C' },
+  vol: { color: 'var(--success-positive)', unit: 'V' },
+  power: { color: 'var(--warning-attention)', unit: 'W' },
+  default: { color: 'var(--text-primary)', unit: '' },
 };
 
 const getSignalConfig = (signalName = '') => {
@@ -69,20 +69,29 @@ function SignalSelector({ signals, selectedSignals, toggleSignal }) {
 
   return (
     <div ref={wrapperRef} className="relative w-64 font-mono">
-      <button onClick={() => setIsOpen(!isOpen)} className="flex items-center justify-between w-full px-4 py-2 text-sm text-gray-100 bg-gray-800/50 border border-gray-600 rounded-md shadow-sm hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500 transition-all duration-150">
+      <button 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="flex items-center justify-between w-full px-4 py-2 text-sm rounded-md shadow-sm transition-all duration-150"
+        style={{ 
+          backgroundColor: 'var(--surface-layer)', 
+          border: '1px solid var(--primary-accent)',
+          color: 'var(--text-primary)'
+        }}
+      >
         <span className="truncate">{selectedCount > 0 ? `${selectedCount} signal${selectedCount > 1 ? 's' : ''} selected` : 'Select Signals'}</span>
-        <svg className={`w-5 h-5 ml-2 -mr-1 text-gray-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+        <svg className={`w-5 h-5 ml-2 -mr-1 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--text-secondary)' }} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
       </button>
       {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto custom-scrollbar">
+        <div className="absolute z-10 w-full mt-1 rounded-md shadow-lg max-h-60 overflow-y-auto custom-scrollbar" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
           <ul className="py-1">
             {signals.map((signal) => (
-              <li key={signal} onClick={() => toggleSignal(signal)} className="flex items-center px-4 py-2 text-sm text-gray-200 hover:bg-blue-600 hover:text-white cursor-pointer">
+              <li key={signal} onClick={() => toggleSignal(signal)} className="flex items-center px-4 py-2 text-sm cursor-pointer" style={{ color: 'var(--text-primary)' }}>
                 <input
                   type="checkbox"
                   checked={selectedSignals.includes(signal)}
                   readOnly
-                  className="form-checkbox h-4 w-4 text-blue-600 bg-gray-700 border-gray-500 rounded focus:ring-blue-500"
+                  className="form-checkbox h-4 w-4 rounded"
+                  style={{ backgroundColor: 'var(--surface-layer)', borderColor: 'var(--text-secondary)', color: 'var(--primary-accent)' }}
                 />
                 <span className="ml-3">{signal}</span>
               </li>
@@ -97,16 +106,16 @@ function SignalSelector({ signals, selectedSignals, toggleSignal }) {
 function StatCard({ label, stats, unit, color }) {
   const StatItem = ({ name, value }) => (
     <div className="text-center">
-      <span className="text-xs text-gray-400 uppercase">{name}</span>
-      <span className="block text-lg font-semibold">{typeof value === 'number' ? value.toFixed(2) : '--'}</span>
+      <span className="text-xs uppercase" style={{ color: 'var(--text-secondary)' }}>{name}</span>
+      <span className="block text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{typeof value === 'number' ? value.toFixed(2) : '--'}</span>
     </div>
   );
 
   return (
-    <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 flex flex-col justify-between h-full">
+    <div className="rounded-lg p-3 flex flex-col justify-between h-full" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
       <div className="flex justify-between items-center mb-2">
         <span className="font-bold text-lg" style={{ color }}>{label}</span>
-        <span className="text-sm text-gray-400">{unit}</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{unit}</span>
       </div>
       <div className="grid grid-cols-4 gap-1 text-gray-200">
         <StatItem name="Latest" value={stats.latest} />
@@ -160,7 +169,7 @@ const CanvasLinePlot = forwardRef(({ signalNames }, ref) => {
       .range([height - margin.bottom, margin.top]);
 
     // Grid and Y-axis
-    ctx.strokeStyle = '#4B5563';
+    ctx.strokeStyle = 'var(--surface-layer)';
     ctx.lineWidth = 0.5;
     const yTicks = yScale.ticks(5);
     yTicks.forEach(tick => {
@@ -170,7 +179,7 @@ const CanvasLinePlot = forwardRef(({ signalNames }, ref) => {
       ctx.lineTo(width - margin.right, y);
       ctx.stroke();
       
-      ctx.fillStyle = '#D1D5DB';
+      ctx.fillStyle = 'var(--text-secondary)';
       ctx.font = '11px "Roboto Mono"';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
@@ -253,12 +262,12 @@ const CanvasLinePlot = forwardRef(({ signalNames }, ref) => {
   });
 
   return (
-    <div ref={wrapperRef} className="w-full h-96 bg-gray-900/50 rounded-lg shadow-2xl relative border border-gray-700">
+    <div ref={wrapperRef} className="w-full h-96 rounded-lg shadow-2xl relative" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
       <canvas ref={canvasRef} className="w-full h-full"></canvas>
       {signalNames.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center text-gray-500 pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ color: 'var(--text-secondary)' }}>
           <div className="text-center">
-            <p className="text-lg font-semibold">No signals selected</p>
+            <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>No signals selected</p>
             <p className="text-sm">Use the dropdown above to start plotting data.</p>
           </div>
         </div>
@@ -379,14 +388,14 @@ function DataMonitoring() {
   }, []);
 
   return (
-    <div className="p-4 md:p-6 bg-black min-h-screen text-gray-200" style={{ fontFamily: "'Roboto Mono', monospace" }}>
+    <div className="p-4 md:p-6 min-h-screen" style={{ fontFamily: "'Roboto Mono', monospace", backgroundColor: 'var(--background-base)', color: 'var(--text-primary)' }}>
       <div className="max-w-7xl mx-auto">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-white">Telemetry Dashboard</h1>
+            <h1 className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>Telemetry Dashboard</h1>
             <div className="flex items-center mt-1">
-              <div className={`w-2 h-2 rounded-full mr-2 ${socketStatus === 'Connected' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-              <p className="text-xs text-gray-400">{socketStatus}</p>
+              <div className={`w-2 h-2 rounded-full mr-2 ${socketStatus === 'Connected' ? 'animate-pulse' : ''}`} style={{ backgroundColor: socketStatus === 'Connected' ? 'var(--success-positive)' : 'var(--warning-attention)' }}></div>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{socketStatus}</p>
             </div>
           </div>
           <SignalSelector signals={availableSignals} selectedSignals={selectedSignals} toggleSignal={handleSignalChange} />

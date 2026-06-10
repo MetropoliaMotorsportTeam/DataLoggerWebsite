@@ -2,19 +2,19 @@ import React, { useState, useEffect } from 'react';
 
 function StatusIndicator({ label, status = 'ok' }) {
   const statusConfig = {
-    ok: { color: 'bg-green-500', text: 'Operational' },
-    warning: { color: 'bg-yellow-500', text: 'Warning' },
-    error: { color: 'bg-red-500', text: 'Error' },
+    ok: { color: 'var(--success-positive)', text: 'Operational' },
+    warning: { color: 'var(--warning-attention)', text: 'Warning' },
+    error: { color: 'var(--warning-attention)', text: 'Error' },
   };
 
   const config = statusConfig[status] || statusConfig.ok;
 
   return (
-    <div className="bg-gray-800/60 p-4 rounded-lg flex items-center justify-between border border-gray-700">
-      <span className="text-gray-300">{label}</span>
+    <div className="p-4 rounded-lg flex items-center justify-between" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)'}}>
+      <span style={{ color: 'var(--text-primary)' }}>{label}</span>
       <div className="flex items-center space-x-2">
-        <div className={`w-3 h-3 rounded-full ${config.color} ${status !== 'ok' ? 'animate-pulse' : ''}`}></div>
-        <span className="text-sm text-gray-400">{config.text}</span>
+        <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: config.color, animation: status !== 'ok' ? 'pulse 1.5s infinite' : 'none' }}></div>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{config.text}</span>
       </div>
     </div>
   );
@@ -54,19 +54,19 @@ function Dashboard() {
   }, []);
 
   return (
-    <div className="p-4 md:p-6 text-gray-200" style={{ fontFamily: "'Roboto Mono', monospace" }}>
+    <div className="p-4 md:p-6" style={{ fontFamily: "'Roboto Mono', monospace", color: 'var(--text-primary)' }}>
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Page Header */}
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
-          <p className="text-gray-400">
+          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Dashboard</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>
             High-level overview of core systems.
           </p>
         </div>
         
         {/* System Status Card */}
-        <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-5 shadow-2xl">
-          <h2 className="text-xl font-semibold mb-4 text-gray-100">System Status</h2>
+        <div className="rounded-lg p-5 shadow-2xl" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
+          <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>System Status</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {systemStatuses.length > 0 ? (
               systemStatuses.map((system) => (

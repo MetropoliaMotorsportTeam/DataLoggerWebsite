@@ -370,18 +370,19 @@ function Settings() {
 
 
   return (
-    <div className="p-6 text-white">
+    <div className="p-6" style={{ color: 'var(--text-primary)' }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Car Settings</h1>
-          <div className="mt-1 text-sm text-zinc-400">Pick a message, fill all signals, then encode or send.</div>
+          <div className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>Pick a message, fill all signals, then encode or send.</div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <div>
-            <div className="text-xs uppercase tracking-wide text-zinc-400">DBC</div>
+            <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>DBC</div>
             <select
-              className="mt-1 w-64 rounded bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
+              className="mt-1 w-64 rounded px-3 py-2 text-sm"
+              style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
               value={selectedDbc}
               onChange={(e) => setSelectedDbc(e.target.value)}
               disabled={loading}
@@ -393,14 +394,15 @@ function Settings() {
                 </option>
               ))}
             </select>
-            {dbcDir ? <div className="mt-1 text-xs text-zinc-500">{dbcDir}</div> : null}
+            {dbcDir ? <div className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>{dbcDir}</div> : null}
           </div>
 
           <button
             type="button"
             onClick={loadDbcList}
             disabled={loading}
-            className="mt-5 rounded bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700 disabled:opacity-60"
+            className="mt-5 rounded px-3 py-2 text-sm disabled:opacity-60"
+            style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}
           >
             Refresh
           </button>
@@ -408,17 +410,18 @@ function Settings() {
       </div>
 
       {error ? (
-        <div className="mt-4 rounded border border-red-900 bg-red-950 p-3 text-sm text-red-200">{error}</div>
+        <div className="mt-4 rounded border p-3 text-sm" style={{ borderColor: 'var(--warning-attention)', backgroundColor: 'rgba(255, 193, 7, 0.1)', color: 'var(--warning-attention)' }}>{error}</div>
       ) : null}
 
     
       <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-12">
         <div className="md:col-span-4">
-          <div className="rounded border border-zinc-800 bg-zinc-950">
-            <div className="border-b border-zinc-800 p-3">
-              <div className="text-xs uppercase tracking-wide text-zinc-400">Messages</div>
+          <div className="rounded" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
+            <div className="p-3" style={{ borderBottom: '1px solid var(--primary-accent)' }}>
+              <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Messages</div>
               <input
-                className="mt-2 w-full rounded bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500"
+                className="mt-2 w-full rounded px-3 py-2 text-sm placeholder:text-zinc-500"
+                style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                 placeholder="Search messages…"
                 value={messageQuery}
                 onChange={(e) => setMessageQuery(e.target.value)}
@@ -435,13 +438,17 @@ function Settings() {
                     key={key}
                     type="button"
                     onClick={() => setSelectedMessageKey(key)}
-                    className={`w-full rounded px-3 py-2 text-left text-sm border border-transparent ${isSelected ? 'bg-zinc-900 border-zinc-700' : 'hover:bg-zinc-900/60'}`}
+                    className={`w-full rounded px-3 py-2 text-left text-sm border ${isSelected ? '' : 'border-transparent'}`}
+                    style={{
+                      backgroundColor: isSelected ? 'var(--background-base)' : 'transparent',
+                      borderColor: isSelected ? 'var(--primary-accent)' : 'transparent'
+                    }}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="font-medium text-zinc-100 truncate">{m?.name || '-'}</div>
-                      <div className="text-xs text-zinc-400 shrink-0">{m?.length ?? '-'}B</div>
+                      <div className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{m?.name || '-'}</div>
+                      <div className="text-xs shrink-0" style={{ color: 'var(--text-secondary)' }}>{m?.length ?? '-'}B</div>
                     </div>
-                    <div className="mt-0.5 flex items-center justify-between gap-2 text-xs text-zinc-400">
+                    <div className="mt-0.5 flex items-center justify-between gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
                       <div className="truncate">{formatFrameId(m?.frameId)}</div>
                       <div className="shrink-0">{sigCount} sig</div>
                     </div>
@@ -450,7 +457,7 @@ function Settings() {
               })}
 
               {!loading && filteredMessages.length === 0 ? (
-                <div className="px-3 py-6 text-center text-sm text-zinc-400">No messages found.</div>
+                <div className="px-3 py-6 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>No messages found.</div>
               ) : null}
             </div>
           </div>
@@ -458,27 +465,27 @@ function Settings() {
 
         <div className="md:col-span-8">
           {!selectedMessage ? (
-            <div className="rounded border border-zinc-800 bg-zinc-950 p-6 text-sm text-zinc-400">
+            <div className="rounded p-6 text-sm" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)', color: 'var(--text-secondary)' }}>
               Select a message to view signals.
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="rounded border border-zinc-800 bg-zinc-950 p-4">
-                <div className="text-xs uppercase tracking-wide text-zinc-400">Selected message</div>
+              <div className="rounded p-4" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
+                <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Selected message</div>
                 <div className="mt-1 text-lg font-semibold">
                   {selectedMessage.name}{' '}
-                  <span className="text-sm text-zinc-400">({formatFrameId(selectedMessage.frameId)})</span>
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>({formatFrameId(selectedMessage.frameId)})</span>
                 </div>
-                <div className="mt-1 text-sm text-zinc-400">
+                <div className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   DLC: {selectedMessage.length ?? '-'} bytes · Signals: {Array.isArray(selectedMessage?.signals) ? selectedMessage.signals.length : 0}
                 </div>
               </div>
 
-              <div className="rounded border border-zinc-800 bg-zinc-950 p-4">
+              <div className="rounded p-4" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-zinc-400">Send</div>
-                    <div className="mt-1 text-sm text-zinc-300">Fill every signal value before sending.</div>
+                    <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Send</div>
+                    <div className="mt-1 text-sm" style={{ color: 'var(--text-primary)' }}>Fill every signal value before sending.</div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
@@ -486,7 +493,8 @@ function Settings() {
                       type="button"
                       onClick={encodeFrame}
                       disabled={encoding || sending || loading || missingSignalNames.length > 0}
-                      className="rounded bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700 disabled:opacity-60"
+                      className="rounded px-3 py-2 text-sm disabled:opacity-60"
+                      style={{ backgroundColor: 'var(--background-base)', border: '1px solid var(--primary-accent)' }}
                     >
                       {encoding ? 'Encoding…' : 'Encode'}
                     </button>
@@ -494,7 +502,8 @@ function Settings() {
                       type="button"
                       onClick={sendFrame}
                       disabled={sending || loading || missingSignalNames.length > 0}
-                      className="rounded bg-sky-700 px-3 py-2 text-sm font-medium text-white hover:bg-sky-600 disabled:opacity-60"
+                      className="rounded px-3 py-2 text-sm font-medium disabled:opacity-60"
+                      style={{ backgroundColor: 'var(--accent-highlight)', color: 'var(--background-base)' }}
                     >
                       {sending ? 'Sending…' : 'Send via MQTT'}
                     </button>
@@ -502,9 +511,9 @@ function Settings() {
                 </div>
 
                 {missingSignalNames.length > 0 ? (
-                  <div className="mt-3 rounded border border-amber-900 bg-amber-950/40 p-3 text-sm text-amber-100">
+                  <div className="mt-3 rounded border p-3 text-sm" style={{ borderColor: 'var(--warning-attention)', backgroundColor: 'rgba(255, 193, 7, 0.1)', color: 'var(--warning-attention)' }}>
                     Missing {missingSignalNames.length} signal value{missingSignalNames.length === 1 ? '' : 's'}.
-                    <div className="mt-1 text-xs text-amber-200/80">
+                    <div className="mt-1 text-xs" style={{ color: 'rgba(255, 193, 7, 0.8)' }}>
                       {missingSignalNames.slice(0, 10).join(', ')}
                       {missingSignalNames.length > 10 ? ` (+${missingSignalNames.length - 10} more)` : ''}
                     </div>
@@ -512,19 +521,18 @@ function Settings() {
                 ) : null}
 
                 {encodeError ? (
-                  <div className="mt-3 rounded border border-red-900 bg-red-950 p-3 text-sm text-red-200">
+                  <div className="mt-3 rounded border p-3 text-sm" style={{ borderColor: 'var(--warning-attention)', backgroundColor: 'rgba(255, 193, 7, 0.1)', color: 'var(--warning-attention)' }}>
                     {encodeError}
                   </div>
                 ) : null}
 
                 {sendError ? (
-                  <div className="mt-3 rounded border border-red-900 bg-red-950 p-3 text-sm text-red-200">
+                  <div className="mt-3 rounded border p-3 text-sm" style={{ borderColor: 'var(--warning-attention)', backgroundColor: 'rgba(255, 193, 7, 0.1)', color: 'var(--warning-attention)' }}>
                     {sendError}
                   </div>
                 ) : null}
 
               
-
                 <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
                  
@@ -540,16 +548,17 @@ function Settings() {
                 {showMqttAdvanced ? (
                   <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-zinc-400">MQTT topic (optional)</div>
+                      <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>MQTT topic (optional)</div>
                       <input
-                        className="mt-1 w-full rounded bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500"
+                        className="mt-1 w-full rounded px-3 py-2 text-sm placeholder:text-zinc-500"
+                        style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                         placeholder="Leave empty to use server MQTT_TX_TOPIC"
                         value={mqttTopic}
                         onChange={(e) => setMqttTopic(e.target.value)}
                       />
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-zinc-400">CAN bus (canNbr)</div>
+                      <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>CAN bus (canNbr)</div>
                       <div className="mt-1 flex items-center gap-2">
                         <input
                           id="canNbrOverride"
@@ -557,12 +566,13 @@ function Settings() {
                           checked={mqttCanNbrOverride}
                           onChange={(e) => setMqttCanNbrOverride(e.target.checked)}
                         />
-                        <label htmlFor="canNbrOverride" className="text-sm text-zinc-200">
+                        <label htmlFor="canNbrOverride" className="text-sm" style={{ color: 'var(--text-primary)' }}>
                           Override
                         </label>
                       </div>
                       <select
-                        className="mt-2 w-full rounded bg-zinc-800 px-3 py-2 text-sm text-zinc-100 disabled:opacity-60"
+                        className="mt-2 w-full rounded px-3 py-2 text-sm disabled:opacity-60"
+                        style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                         value={mqttCanNbr}
                         onChange={(e) => setMqttCanNbr(e.target.value)}
                         disabled={!mqttCanNbrOverride}
@@ -572,14 +582,15 @@ function Settings() {
                         <option value="1">1</option>
                         <option value="2">2</option>
                       </select>
-                      <div className="mt-1 text-xs text-zinc-500">
+                      <div className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
                         Default is automatic: server prefers last-seen bus from telemetry for this frame ID.
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-zinc-400">QoS</div>
+                      <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>QoS</div>
                       <select
-                        className="mt-1 w-full rounded bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
+                        className="mt-1 w-full rounded px-3 py-2 text-sm"
+                        style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                         value={mqttQos}
                         onChange={(e) => setMqttQos(e.target.value)}
                       >
@@ -598,16 +609,17 @@ function Settings() {
                       const value = encodeValues?.[name] ?? '';
 
                       return (
-                        <div key={name} className="rounded border border-zinc-800 bg-zinc-900/40 p-3">
+                        <div key={name} className="rounded p-3" style={{ backgroundColor: 'var(--background-base)', border: '1px solid var(--primary-accent)' }}>
                           <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm font-medium text-zinc-100 truncate">{name}</div>
-                            <div className="text-xs text-zinc-400">{sig?.unit || ''}</div>
+                            <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{name}</div>
+                            <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>{sig?.unit || ''}</div>
                           </div>
 
                           <div className="mt-2">
                             {hasChoices ? (
                               <select
-                                className="w-full rounded bg-zinc-800 px-3 py-2 text-sm text-zinc-100"
+                                className="w-full rounded px-3 py-2 text-sm"
+                                style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                                 value={String(value)}
                                 onChange={(e) => setEncodeValues((prev) => ({ ...prev, [name]: e.target.value }))}
                               >
@@ -621,7 +633,8 @@ function Settings() {
                               </select>
                             ) : (
                               <input
-                                className="w-full rounded bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500"
+                                className="w-full rounded px-3 py-2 text-sm placeholder:text-zinc-500"
+                                style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                                 placeholder="Enter value"
                                 value={value}
                                 onChange={(e) => setEncodeValues((prev) => ({ ...prev, [name]: e.target.value }))}
@@ -629,7 +642,7 @@ function Settings() {
                             )}
                           </div>
 
-                          <div className="mt-2 text-xs text-zinc-400">
+                          <div className="mt-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
                             {inferDataType(sig)} · Range: {formatRange(sig)}
                           </div>
                         </div>
@@ -638,16 +651,17 @@ function Settings() {
                 </div>
 
                 {encodeResult?.frame ? (
-                  <div className="mt-4 rounded border border-zinc-800 bg-zinc-900/30 p-3">
+                  <div className="mt-4 rounded p-3" style={{ backgroundColor: 'var(--background-base)', border: '1px solid var(--primary-accent)' }}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="text-sm text-zinc-200">
+                      <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
                         Encoded: <span className="font-semibold">{formatFrameId(encodeResult.frame.id)}</span>
-                        <span className="ml-2 font-mono text-zinc-100">{encodeResult.frame.data}</span>
+                        <span className="ml-2 font-mono" style={{ color: 'var(--text-primary)' }}>{encodeResult.frame.data}</span>
                       </div>
                       <button
                         type="button"
                         onClick={copyEncoded}
-                        className="rounded bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"
+                        className="rounded px-3 py-2 text-sm"
+                        style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}
                       >
                         Copy
                       </button>
@@ -656,10 +670,10 @@ function Settings() {
                 ) : null}
 
                 {sendResult?.published ? (
-                  <div className="mt-3 rounded border border-emerald-900 bg-emerald-950/40 p-3 text-sm text-emerald-100">
+                  <div className="mt-3 rounded border p-3 text-sm" style={{ borderColor: 'var(--success-positive)', backgroundColor: 'rgba(128, 255, 128, 0.1)', color: 'var(--success-positive)' }}>
                     Published to <span className="font-mono">{sendResult.topic}</span> (QoS {sendResult.qos}).
                     {sendResult.payloadFormat === 'binary' && sendResult.binaryPayloadHex ? (
-                      <div className="mt-2 space-y-2 text-xs text-emerald-100/90">
+                      <div className="mt-2 space-y-2 text-xs" style={{ color: 'rgba(128, 255, 128, 0.9)' }}>
                         <div>
                           Binary payload (hex):{' '}
                           <span className="font-mono break-all">{String(sendResult.binaryPayloadHex)}</span>
@@ -669,7 +683,7 @@ function Settings() {
                           const decoded = decodeCarSettingsPayload(sendResult.binaryPayloadHex);
                           if (!decoded.ok) {
                             return (
-                              <div className="rounded border border-amber-900 bg-amber-950/30 p-2 text-amber-100">
+                              <div className="rounded border p-2" style={{ borderColor: 'var(--warning-attention)', backgroundColor: 'rgba(255, 193, 7, 0.1)', color: 'var(--warning-attention)' }}>
                                 Could not decode as{' '}
                                 <span className="font-mono">{'{ uint8_t canNbr, uint16_t id, uint8_t msg[8] }'}</span>: {decoded.error}
                               </div>
@@ -679,8 +693,8 @@ function Settings() {
                           const bytesPretty = decoded.bytes.map(formatHexByte).join(' ');
                           const msgPretty = decoded.msg.map(formatHexByte).join(' ');
                           return (
-                            <div className="rounded border border-emerald-900/60 bg-emerald-950/20 p-2">
-                              <div className="font-semibold text-emerald-100">Decoded payload (for verification)</div>
+                            <div className="rounded border p-2" style={{ borderColor: 'rgba(128, 255, 128, 0.6)', backgroundColor: 'rgba(128, 255, 128, 0.05)' }}>
+                              <div className="font-semibold" style={{ color: 'var(--success-positive)' }}>Decoded payload (for verification)</div>
                               <div className="mt-1 grid grid-cols-1 gap-1 md:grid-cols-2">
                                 <div>
                                   canNbr: <span className="font-mono">{decoded.canNbr}</span>
@@ -695,9 +709,6 @@ function Settings() {
                                   id (BE): <span className="font-mono">{decoded.idBE} ({formatHexU16(decoded.idBE)})</span>
                                 </div>
                               </div>
-                              <div className="mt-2">
-                                bytes[11]: <span className="font-mono">{bytesPretty}</span>
-                              </div>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <button
                                   type="button"
@@ -708,7 +719,8 @@ function Settings() {
                                       // ignore
                                     }
                                   }}
-                                  className="rounded bg-emerald-900/40 px-2 py-1 text-xs hover:bg-emerald-900/60"
+                                  className="rounded px-2 py-1 text-xs"
+                                  style={{ backgroundColor: 'rgba(128, 255, 128, 0.2)' }}
                                 >
                                   Copy hex
                                 </button>
@@ -732,12 +744,13 @@ function Settings() {
                                       // ignore
                                     }
                                   }}
-                                  className="rounded bg-emerald-900/40 px-2 py-1 text-xs hover:bg-emerald-900/60"
+                                  className="rounded px-2 py-1 text-xs"
+                                  style={{ backgroundColor: 'rgba(128, 255, 128, 0.2)' }}
                                 >
                                   Copy decoded JSON
                                 </button>
                               </div>
-                              <div className="mt-2 text-[11px] text-emerald-100/80">
+                              <div className="mt-2 text-[11px]" style={{ color: 'rgba(128, 255, 128, 0.8)' }}>
                                 Note: only one of LE/BE matches firmware. Configure server with{' '}
                                 <span className="font-mono">MQTT_TX_ID_ENDIAN</span>.
                               </div>
