@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback} from 'react';
 import { io } from 'socket.io-client';
-import * as d3 from 'd3';
 import './DataMonitoring.css';
 
 const MAX_DATA_POINTS = 2000;
@@ -9,18 +8,8 @@ const API_BASE_URL = 'http://localhost:3000';
 
 import { TIMEFRAME_OPTIONS } from '../../config/timeframeOptions';
 import { getSignalConfig } from '../../config/signalConfig';
+import { calculateStats } from '../../utils/calculateStats';
 
-
-
-const calculateStats = (data = []) => {
-  if (data.length === 0) return { min: 0, max: 0, avg: 0, latest: 0 };
-  const values = data.map(point => (typeof point === 'number' ? point : point.value));
-  const latest = values[values.length - 1];
-  const min = d3.min(values);
-  const max = d3.max(values);
-  const avg = d3.mean(values);
-  return { min, max, avg, latest };
-};
 
 // --- UI Components ---
 
