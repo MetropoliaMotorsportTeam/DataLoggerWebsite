@@ -1,4 +1,19 @@
 @import "tailwindcss";
-.backgroundColor {
-    background-color: #FFF;
+
+:root {
+  /* UI Color Palette — Wolf Logo Theme */
+  --primary-accent: #C8FF00; /* Lime Wolf */
+  --background-base: #121212; /* Midnight Graphite */
+  --surface-layer: #1E1E1E; /* Charcoal Mist */
+  --text-primary: #E0E0E0; /* Silver Ash */
+  --text-secondary: #A0A0A0; /* Cool Gray */
+  --accent-highlight: #00FFFF; /* Electric Cyan */
+  --warning-attention: #FFC107; /* Amber Pulse */
+  --success-positive: #80FF80; /* Mint Glow */
+}
+
+body {
+  background-color: var(--background-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }

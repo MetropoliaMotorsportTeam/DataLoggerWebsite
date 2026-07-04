@@ -677,18 +677,19 @@ export default function Packinglist() {
 
   // -------- UI --------
   return (
-    <div>
+    <div style={{ fontFamily: "'Roboto Mono', monospace", color: 'var(--text-primary)', backgroundColor: 'var(--background-base)' }}>
       <header>
-        <div className="topbar">
+        <div className="topbar" style={{ backgroundColor: 'var(--surface-layer)', borderBottom: '1px solid var(--primary-accent)' }}>
           <div className="brand">
-            <span className="dot" />
+            <span className="dot" style={{ backgroundColor: 'var(--primary-accent)' }} />
             <span>Packing List</span>
-            <span className="badge">CSV: server</span>
+            <span className="badge" style={{ backgroundColor: 'var(--accent-highlight)', color: 'var(--background-base)' }}>CSV: server</span>
           </div>
 
           <div className="actions">
             <button
               className="primary"
+              style={{ backgroundColor: 'var(--primary-accent)', color: 'var(--background-base)' }}
               onClick={() =>
                 setUi((p) => ({
                   ...p,
@@ -702,6 +703,7 @@ export default function Packinglist() {
             </button>
 
             <button
+              style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
               onClick={() =>
                 setUi((p) => ({ ...p, modalItem: true, editingItemId: null }))
               }
@@ -709,6 +711,7 @@ export default function Packinglist() {
               + Add Item
             </button>
             <button
+              style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
               onClick={() => {
                 if (!currentList) {
                   alert("No list selected!");
@@ -720,7 +723,7 @@ export default function Packinglist() {
               Upload CSV
             </button>
 
-            <button onClick={exportCsv}>Export CSV</button>
+            <button style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }} onClick={exportCsv}>Export CSV</button>
           </div>
         </div>
       </header>
@@ -741,10 +744,10 @@ export default function Packinglist() {
       <main>
         <div className="grid">
           {/* Left */}
-          <section className="panel">
-            <div className="head">
+          <section className="panel" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
+            <div className="head" style={{ borderBottom: '1px solid var(--primary-accent)' }}>
               <h2>Lists</h2>
-              <span className="muted">{db.lists.length} total</span>
+              <span className="muted" style={{ color: 'var(--text-secondary)' }}>{db.lists.length} total</span>
             </div>
 
             <div className="body stack">
@@ -754,6 +757,7 @@ export default function Packinglist() {
                 onChange={(e) =>
                   setUi((p) => ({ ...p, listSearch: e.target.value }))
                 }
+                style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
               />
 
               <div className="list">
@@ -765,6 +769,10 @@ export default function Packinglist() {
                     <div
                       key={l.id}
                       className={"listItem" + (active ? " active" : "")}
+                      style={{
+                        backgroundColor: active ? 'var(--primary-accent)' : 'transparent',
+                        color: active ? 'var(--background-base)' : 'var(--text-primary)',
+                      }}
                       onClick={() => {
                         setUi((p) => ({
                           ...p,
@@ -790,17 +798,17 @@ export default function Packinglist() {
                         >
                           {l.name}
                         </div>
-                        <div className="mini">
+                        <div className="mini" style={{ color: active ? 'var(--background-base)' : 'var(--text-secondary)' }}>
                           {new Date(l.created).toLocaleString()}
                         </div>
                       </div>
-                      <div className="badge">{itemCount} items</div>
+                      <div className="badge" style={{ backgroundColor: active ? 'var(--background-base)' : 'var(--surface-layer)', color: active ? 'var(--primary-accent)' : 'var(--text-primary)' }}>{itemCount} items</div>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="hint">
+              <div className="hint" style={{ color: 'var(--text-secondary)' }}>
                 New list defaults to <b>packing_list_YYYY-MM-DD</b> and copies
                 the last list’s structure.
               </div>
@@ -808,10 +816,10 @@ export default function Packinglist() {
           </section>
 
           {/* Right */}
-          <section className="panel">
-            <div className="head">
+          <section className="panel" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
+            <div className="head" style={{ borderBottom: '1px solid var(--primary-accent)' }}>
               <h2>Current List</h2>
-              <span className="muted">
+              <span className="muted" style={{ color: 'var(--text-secondary)' }}>
                 {currentList
                   ? `Created: ${new Date(currentList.created).toLocaleString()}`
                   : "No list selected"}
@@ -821,7 +829,7 @@ export default function Packinglist() {
             <div className="body rightTop">
               <div className="split2">
                 <div className="stack">
-                  <label className="muted">Name</label>
+                  <label className="muted" style={{ color: 'var(--text-secondary)' }}>Name</label>
 
                   {/* ✅ Name + Rename button (no inline input) */}
                   <div
@@ -835,12 +843,16 @@ export default function Packinglist() {
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
+                        backgroundColor: 'var(--background-base)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--primary-accent)'
                       }}
                     >
                       {currentList?.name || "—"}
                     </span>
                     <button
                       disabled={!currentList}
+                      style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                       onClick={() => {
                         if (!currentList) return;
                         setUi((p) => ({
@@ -857,14 +869,15 @@ export default function Packinglist() {
                 </div>
 
                 <div className="stack">
-                  <label className="muted">Structure</label>
+                  <label className="muted" style={{ color: 'var(--text-secondary)' }}>Structure</label>
                   <div className="row">
-                    <span className="badge">
+                    <span className="badge" style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}>
                       {currentList
                         ? `${sectionCount} sections • 7 columns`
                         : "—"}
                     </span>
                     <button
+                      style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                       onClick={() =>
                         setUi((p) => ({
                           ...p,
@@ -881,7 +894,7 @@ export default function Packinglist() {
 
               <div className="split2">
                 <div className="stack">
-                  <label className="muted">Filter by section</label>
+                  <label className="muted" style={{ color: 'var(--text-secondary)' }}>Filter by section</label>
                   <div className="chips">
                     {["ALL", ...sections].map((sec) => (
                       <div
@@ -889,6 +902,11 @@ export default function Packinglist() {
                         className={
                           "chip" + (ui.activeSection === sec ? " active" : "")
                         }
+                        style={{
+                          backgroundColor: ui.activeSection === sec ? 'var(--primary-accent)' : 'var(--background-base)',
+                          color: ui.activeSection === sec ? 'var(--background-base)' : 'var(--text-primary)',
+                          border: `1px solid ${ui.activeSection === sec ? 'var(--primary-accent)' : 'var(--text-secondary)'}`
+                        }}
                         onClick={() =>
                           setUi((p) => ({ ...p, activeSection: sec }))
                         }
@@ -900,13 +918,14 @@ export default function Packinglist() {
                 </div>
 
                 <div className="stack">
-                  <label className="muted">Search items</label>
+                  <label className="muted" style={{ color: 'var(--text-secondary)' }}>Search items</label>
                   <input
                     placeholder="Search item..."
                     value={ui.itemSearch}
                     onChange={(e) =>
                       setUi((p) => ({ ...p, itemSearch: e.target.value }))
                     }
+                    style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                   />
                 </div>
               </div>
@@ -928,7 +947,7 @@ export default function Packinglist() {
                       }))
                     }
                   />
-                  <span className="muted">Show only packed</span>
+                  <span className="muted" style={{ color: 'var(--text-secondary)' }}>Show only packed</span>
                 </label>
 
                 <label className="row" style={{ gap: 8 }}>
@@ -944,34 +963,34 @@ export default function Packinglist() {
                       }))
                     }
                   />
-                  <span className="muted">Show only unpacked</span>
+                  <span className="muted" style={{ color: 'var(--text-secondary)' }}>Show only unpacked</span>
                 </label>
 
                 <div style={{ flex: 2 }} />
-                <span className="badge">{filteredItems.length} shown</span>
+                <span className="badge" style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}>{filteredItems.length} shown</span>
               </div>
 
               <div className="tableWrap">
-                <table>
+                <table style={{ borderCollapse: 'separate', borderSpacing: '0 10px' }}>
                   <thead>
                     <tr>
                       {columns.map((c) => (
-                        <th key={c}>{columnLabel(c)}</th>
+                        <th key={c} style={{ color: 'var(--text-secondary)' }}>{columnLabel(c)}</th>
                       ))}
-                      <th>Actions</th>
+                      <th style={{ color: 'var(--text-secondary)' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredItems.map((it) => (
-                      <tr key={it.id}>
+                      <tr key={it.id} style={{ backgroundColor: 'var(--background-base)' }}>
                         {columns.map((c) => {
                           if (c === "packed") {
                             return (
                               <td key={c}>
                                 {it.packed ? (
-                                  <span className="k ok">☑ Packed</span>
+                                  <span className="k ok" style={{ color: 'var(--success-positive)' }}>☑ Packed</span>
                                 ) : (
-                                  <span className="k no">☐ Not packed</span>
+                                  <span className="k no" style={{ color: 'var(--warning-attention)' }}>☐ Not packed</span>
                                 )}
                               </td>
                             );
@@ -979,7 +998,7 @@ export default function Packinglist() {
                           if (c === "section")
                             return (
                               <td key={c}>
-                                <span className="badge">{it.section}</span>
+                                <span className="badge" style={{ backgroundColor: 'var(--accent-highlight)', color: 'var(--background-base)' }}>{it.section}</span>
                               </td>
                             );
                           if (c === "item")
@@ -997,6 +1016,7 @@ export default function Packinglist() {
                           >
                             <button
                               className="ghost"
+                              style={{ color: 'var(--primary-accent)' }}
                               onClick={() => togglePacked(it.id)}
                             >
                               {it.packed ? "Unpack" : "Pack"}

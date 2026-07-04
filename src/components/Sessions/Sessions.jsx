@@ -252,21 +252,21 @@ const Sessions = () => {
   };
 
   if (loading) {
-    return <div className="sessions-container">Loading sessions...</div>;
+    return <div className="sessions-container" style={{ color: 'var(--text-primary)' }}>Loading sessions...</div>;
   }
 
   return (
-    <div className="sessions-container">
-      <div className="controls">
+    <div className="sessions-container" style={{ fontFamily: "'Roboto Mono', monospace", color: 'var(--text-primary)', backgroundColor: 'var(--background-base)' }}>
+      <div className="controls" style={{ backgroundColor: 'var(--surface-layer)', borderBottom: '1px solid var(--primary-accent)', padding: '1rem' }}>
         <div className="controls-left">
-          <button className="btn btn-primary" onClick={handleAddSession}>
+          <button className="btn btn-primary" onClick={handleAddSession} style={{ backgroundColor: 'var(--primary-accent)', color: 'var(--background-base)' }}>
             + Add Session
           </button>
 
           <button
             className="btn btn-primary"
             onClick={handleAddColumn}
-            style={{ marginLeft: "8px" }}
+            style={{ marginLeft: "8px", backgroundColor: 'var(--primary-accent)', color: 'var(--background-base)' }}
           >
             + Add Column
           </button>
@@ -276,14 +276,14 @@ const Sessions = () => {
               <button
                 className="btn btn-warning"
                 onClick={() => setDeleteModal({ open: true })}
-                style={{ marginLeft: "8px" }}
+                style={{ marginLeft: "8px", backgroundColor: 'var(--warning-attention)', color: 'var(--background-base)' }}
               >
                 - Delete Column
               </button>
               <button
                 className="btn btn-danger"
                 onClick={() => setDeleteSessionModal({ open: true })}
-                style={{ marginLeft: "8px" }}
+                style={{ marginLeft: "8px", backgroundColor: 'var(--warning-attention)', color: 'var(--background-base)' }}
               >
                 - Delete Session
               </button>
@@ -293,7 +293,7 @@ const Sessions = () => {
 
         <div className="controls-right">
           {data.length > 0 && (
-            <button className="btn btn-danger" onClick={handleClearData}>
+            <button className="btn btn-danger" onClick={handleClearData} style={{ backgroundColor: 'var(--warning-attention)', color: 'var(--background-base)' }}>
               Clear Data
             </button>
           )}
@@ -302,24 +302,24 @@ const Sessions = () => {
             data={getCsvData()}
             filename={"sessions.csv"}
             className="btn btn-secondary"
-            style={{ marginLeft: "8px" }}
+            style={{ marginLeft: "8px", backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
           >
             Export CSV
           </CSVLink>
 
           {saving && (
-            <span style={{ marginLeft: "10px", color: "#888" }}>Saving...</span>
+            <span style={{ marginLeft: "10px", color: 'var(--text-secondary)' }}>Saving...</span>
           )}
         </div>
       </div>
 
       {descriptionModal.open && (
         <div className="description-modal-backdrop">
-          <div className="description-modal">
+          <div className="description-modal" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)', color: 'var(--text-primary)' }}>
             <h3>Session Description</h3>
             {!descriptionEditing ? (
               <>
-                <div className="description-view">
+                <div className="description-view" style={{ backgroundColor: 'var(--background-base)', border: '1px solid var(--primary-accent)', padding: '1rem', marginBottom: '1rem' }}>
                   {modalDescription ? modalDescription : "No description yet."}
                 </div>
                 <div
@@ -328,12 +328,14 @@ const Sessions = () => {
                   <button
                     className="btn btn-secondary"
                     onClick={() => closeDescription(false)}
+                    style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                   >
                     Close
                   </button>
                   <button
                     className="btn btn-primary"
                     onClick={() => setDescriptionEditing(true)}
+                    style={{ backgroundColor: 'var(--primary-accent)', color: 'var(--background-base)' }}
                   >
                     Edit
                   </button>
@@ -345,19 +347,20 @@ const Sessions = () => {
                   value={modalDescription}
                   onChange={(e) => setModalDescription(e.target.value)}
                   rows={12}
-                  style={{ width: "100%", marginBottom: "12px" }}
+                  style={{ width: "100%", marginBottom: "12px", backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                 />
                 <div style={{ textAlign: "right" }}>
                   <button
                     className="btn btn-secondary"
                     onClick={() => setDescriptionEditing(false)}
-                    style={{ marginRight: "8px" }}
+                    style={{ marginRight: "8px", backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                   >
                     Cancel
                   </button>
                   <button
                     className="btn btn-primary"
                     onClick={() => closeDescription(true)}
+                    style={{ backgroundColor: 'var(--primary-accent)', color: 'var(--background-base)' }}
                   >
                     Save
                   </button>
@@ -370,7 +373,7 @@ const Sessions = () => {
 
       {deleteModal.open && (
         <div className="description-modal-backdrop">
-          <div className="description-modal">
+          <div className="description-modal" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)', color: 'var(--text-primary)' }}>
             <h3>Delete Column</h3>
             {columns.length === 0 ? (
               <div>No columns available.</div>
@@ -385,7 +388,7 @@ const Sessions = () => {
                         justifyContent: "space-between",
                         alignItems: "center",
                         padding: "6px 0",
-                        borderBottom: "1px solid #eee",
+                        borderBottom: '1px solid var(--primary-accent)',
                       }}
                     >
                       <div>
@@ -395,6 +398,7 @@ const Sessions = () => {
                         <button
                           className="btn btn-danger"
                           onClick={() => handleDeleteColumn(col.key)}
+                          style={{ backgroundColor: 'var(--warning-attention)', color: 'var(--background-base)' }}
                         >
                           Delete
                         </button>
@@ -409,6 +413,7 @@ const Sessions = () => {
               <button
                 className="btn btn-secondary"
                 onClick={() => setDeleteModal({ open: false })}
+                style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
               >
                 Close
               </button>
@@ -419,7 +424,7 @@ const Sessions = () => {
 
       {deleteSessionModal.open && (
         <div className="description-modal-backdrop">
-          <div className="description-modal">
+          <div className="description-modal" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)', color: 'var(--text-primary)' }}>
             <h3>Delete Session</h3>
             {data.length === 0 ? (
               <div>No sessions available.</div>
@@ -434,7 +439,7 @@ const Sessions = () => {
                         justifyContent: "space-between",
                         alignItems: "center",
                         padding: "6px 0",
-                        borderBottom: "1px solid #eee",
+                        borderBottom: '1px solid var(--primary-accent)',
                       }}
                     >
                       <div>
@@ -445,6 +450,7 @@ const Sessions = () => {
                         <button
                           className="btn btn-danger"
                           onClick={() => handleDeleteSession(i)}
+                          style={{ backgroundColor: 'var(--warning-attention)', color: 'var(--background-base)' }}
                         >
                           Delete
                         </button>
@@ -459,6 +465,7 @@ const Sessions = () => {
               <button
                 className="btn btn-secondary"
                 onClick={() => setDeleteSessionModal({ open: false })}
+                style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
               >
                 Close
               </button>
@@ -470,11 +477,12 @@ const Sessions = () => {
       <div className="table-wrapper">
         <table className="sessions-table">
           <thead>
-            <tr>
+            <tr style={{ borderBottom: '2px solid var(--primary-accent)' }}>
               {columns.map((col) => (
                 <th
                   key={col.key}
                   className={col.key === "name" ? "col-name" : undefined}
+                  style={{ color: 'var(--text-secondary)' }}
                 >
                   {col.name}
                 </th>
@@ -490,7 +498,7 @@ const Sessions = () => {
                   style={{
                     textAlign: "center",
                     padding: "40px",
-                    color: "#888",
+                    color: 'var(--text-secondary)',
                   }}
                 >
                   No sessions recorded. Click "Add Session" to start.
@@ -498,7 +506,7 @@ const Sessions = () => {
               </tr>
             ) : (
               data.map((row, rowIndex) => (
-                <tr key={rowIndex}>
+                <tr key={rowIndex} style={{ borderBottom: '1px solid var(--surface-layer)' }}>
                   {columns.map((col) => {
                     const isEditing =
                       editingCell?.rowIndex === rowIndex &&
@@ -516,6 +524,7 @@ const Sessions = () => {
                             setEditingCell({ rowIndex, colKey: col.key });
                           }
                         }}
+                        style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)' }}
                       >
                         {isEditing ? (
                           <input
@@ -526,6 +535,7 @@ const Sessions = () => {
                             onBlur={handleBlur}
                             onKeyDown={handleKeyDown}
                             className="cell-input"
+                            style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                           />
                         ) : col.key === "startTime" && row[col.key] ? (
                           new Date(row[col.key]).toLocaleString()
@@ -538,6 +548,7 @@ const Sessions = () => {
                                 e.stopPropagation();
                                 openDescription(rowIndex);
                               }}
+                              style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                             >
                               Details
                             </button>
