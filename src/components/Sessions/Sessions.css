@@ -179,7 +179,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.35);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -197,7 +197,7 @@
 }
 
 .description-modal h3 {
-  color: #1f2937;
+  color: #ffffff;
   font-weight: 700;
 }
 

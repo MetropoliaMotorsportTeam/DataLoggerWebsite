@@ -442,7 +442,7 @@ const Sessions = () => {
                         borderBottom: '1px solid var(--primary-accent)',
                       }}
                     >
-                      <div>
+                      <div style={{ color: "#ffffff" }}>
                         <strong>{i + 1}.</strong>&nbsp;{row.name || "(no name)"}{" "}
                         — {row.user || "(no user)"}
                       </div>

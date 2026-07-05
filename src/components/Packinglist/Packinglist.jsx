@@ -618,15 +618,52 @@ export default function Packinglist() {
     if (!confirm("Delete all packed items currently shown?")) return;
 
     const ids = new Set(filteredItems.filter((x) => x.packed).map((x) => x.id));
-    const nextItems = db.items.filter((it) => !ids.has(it.id));
+    if (ids.size === 0) return;
 
-    setDb((p) => ({ ...p, items: nextItems }));
+    const nextItems = db.items.filter((it) => !ids.has(it.id));
 
     try {
       await saveListToServer(currentList, nextItems);
+      // Update state only after server confirms the save
+      setDb((p) => ({ ...p, items: p.items.filter((it) => !ids.has(it.id)) }));
     } catch (err) {
       console.error(err);
-      alert("Deleted locally, but failed to save to server.");
+      alert("Failed to delete items. Please try again.");
+    }
+  };
+
+  const deleteAllItems = async () => {
+    if (!currentList) return;
+    if (!confirm(`Delete all items in "${currentList.name}"?`)) return;
+
+    try {
+      await saveListToServer(currentList, []);
+      setDb((p) => ({ ...p, items: p.items.filter((it) => it.listId !== currentList.id) }));
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete all items. Please try again.');
+    }
+  };
+
+  const deleteList = async () => {
+    if (!currentList) return;
+    if (!confirm(`Permanently delete the list "${currentList.name}"? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`${API_URL}/packinglist?key=${encodeURIComponent(currentList.key)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete list');
+
+      setDb((p) => ({
+        ...p,
+        lists: p.lists.filter((l) => l.id !== currentList.id),
+        items: p.items.filter((it) => it.listId !== currentList.id),
+      }));
+      setUi((p) => ({ ...p, currentListId: null }));
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete the list. Please try again.');
     }
   };
 
@@ -679,13 +716,11 @@ export default function Packinglist() {
   return (
     <div style={{ fontFamily: "'Roboto Mono', monospace", color: 'var(--text-primary)', backgroundColor: 'var(--background-base)' }}>
       <header>
-        <div className="topbar" style={{ backgroundColor: 'var(--surface-layer)', borderBottom: '1px solid var(--primary-accent)' }}>
+        <div className="topbar" style={{ backgroundColor: 'var(--surface-layer)', borderBottom: '1px solid var(--primary-accent)', paddingTop: '14px', paddingBottom: '14px' }}>
           <div className="brand">
             <span className="dot" style={{ backgroundColor: 'var(--primary-accent)' }} />
             <span>Packing List</span>
-            <span className="badge" style={{ backgroundColor: 'var(--accent-highlight)', color: 'var(--background-base)' }}>CSV: server</span>
           </div>
-
           <div className="actions">
             <button
               className="primary"
@@ -701,29 +736,24 @@ export default function Packinglist() {
             >
               + New Packing List
             </button>
-
             <button
               style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
-              onClick={() =>
-                setUi((p) => ({ ...p, modalItem: true, editingItemId: null }))
-              }
+              onClick={() => setUi((p) => ({ ...p, modalItem: true, editingItemId: null }))}
             >
               + Add Item
             </button>
             <button
               style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
               onClick={() => {
-                if (!currentList) {
-                  alert("No list selected!");
-                  return;
-                }
+                if (!currentList) { alert("No list selected!"); return; }
                 document.getElementById("csvFileInput").click();
               }}
             >
               Upload CSV
             </button>
-
-            <button style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }} onClick={exportCsv}>Export CSV</button>
+            <button style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }} onClick={exportCsv}>
+              Export CSV
+            </button>
           </div>
         </div>
       </header>
@@ -1040,8 +1070,29 @@ export default function Packinglist() {
                 <button className="good" onClick={markAllShownPacked}>
                   Mark all shown as packed
                 </button>
-                <button className="bad" onClick={deletePackedShown}>
+                <button
+                  className="bad"
+                  onClick={deletePackedShown}
+                  disabled={loadingCurrentList || !filteredItems.some((x) => x.packed)}
+                  style={{ opacity: (!loadingCurrentList && filteredItems.some((x) => x.packed)) ? 1 : 0.4, cursor: (!loadingCurrentList && filteredItems.some((x) => x.packed)) ? 'pointer' : 'not-allowed' }}
+                >
                   Delete packed (shown)
+                </button>
+                <button
+                  className="bad"
+                  onClick={deleteAllItems}
+                  disabled={loadingCurrentList || !currentList}
+                  style={{ opacity: (currentList && !loadingCurrentList) ? 1 : 0.4, cursor: (currentList && !loadingCurrentList) ? 'pointer' : 'not-allowed' }}
+                >
+                  Delete all
+                </button>
+                <button
+                  className="bad"
+                  onClick={deleteList}
+                  disabled={!currentList}
+                  style={{ opacity: currentList ? 1 : 0.4, cursor: currentList ? 'pointer' : 'not-allowed', backgroundColor: '#7f1d1d' }}
+                >
+                  Delete list
                 </button>
               </div>
             </div>

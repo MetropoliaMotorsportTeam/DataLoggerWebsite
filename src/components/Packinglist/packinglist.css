@@ -16,11 +16,10 @@
 }
 *{box-sizing:border-box}
 header{
-    padding:18px 18px 10px;
+    padding:0 18px;
     position:sticky; top:0;
     backdrop-filter: blur(10px);
     background: rgba(11,18,32,.65);
-    border-bottom:1px solid rgba(35,49,79,.6);
     z-index:10;
 }
 .topbar{
