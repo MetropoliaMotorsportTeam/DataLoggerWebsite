@@ -17,7 +17,13 @@ import {
 // --- UI Components ---
 import { SignalSelector } from './SignalSelector';
 import { StatCard } from './StatCard';
+
+// Custom chart 
 import { CanvasLinePlot } from './CanvasLinePlot';
+
+
+//NEW ONE, using Plotly for better performance and interactivity
+import { PlotlyLinePlot } from "./PlotlyLinePlot";
 
 // --- Main Component ---
 function DataMonitoring() {
@@ -345,7 +351,10 @@ function DataMonitoring() {
           )}
           
           <div>
-            <CanvasLinePlot ref={plotRef} signalNames={selectedSignals} />
+            <PlotlyLinePlot
+            ref={plotRef}
+            signalNames={selectedSignals}
+            />
           </div>
         </main>
       </div>
