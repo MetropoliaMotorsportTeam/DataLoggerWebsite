@@ -25,7 +25,7 @@ export const CanvasLinePlot = forwardRef(({ signalNames }, ref) => {
     canvas.height = height * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const margin = { top: 40, right: 20, bottom: 30, left: 50 };
+    const margin = { top: 40, right: 20, bottom: 55, left: 55 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -36,70 +36,130 @@ export const CanvasLinePlot = forwardRef(({ signalNames }, ref) => {
     const allData = Array.from(series.values()).flat();
 
     // Scales
-    const xDomain = allData.length > 0 ? d3.extent(allData, d => d.timestamp) : [Date.now() - 60 * 1000, Date.now()];
-    const xScale = d3.scaleTime()
-      .domain(xDomain)
-      .range([margin.left, width - margin.right]);
+    // Scales
+const xDomain =
+  allData.length > 0
+    ? d3.extent(allData, d => d.timestamp)
+    : [Date.now() - 60 * 1000, Date.now()];
 
-    const yDomain = allData.length > 0 ? d3.extent(allData, d => d.value) : [0, 100];
-    const yPadding = (yDomain[1] - yDomain[0] || 1) * 0.1;
-    const yScale = d3.scaleLinear()
-      .domain([yDomain[0] - yPadding, yDomain[1] + yPadding])
-      .range([height - margin.bottom, margin.top]);
+const xScale = d3.scaleTime()
+  .domain(xDomain)
+  .range([margin.left, width - margin.right]);
 
-    // Grid and Y-axis
-    ctx.strokeStyle = '#4B5563';
-    ctx.lineWidth = 0.5;
-    const yTicks = yScale.ticks(5);
-    yTicks.forEach(tick => {
-      const y = yScale(tick);
-      ctx.beginPath();
-      ctx.moveTo(margin.left, y);
-      ctx.lineTo(width - margin.right, y);
-      ctx.stroke();
-      
-      ctx.fillStyle = '#D1D5DB';
-      ctx.font = '11px "Roboto Mono"';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(tick.toFixed(1), margin.left - 5, y);
-    });
+const xTicks = xScale.ticks(6);
 
-    // Clip region for lines
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(margin.left, margin.top, innerWidth, innerHeight);
-    ctx.clip();
+const yDomain =
+  allData.length > 0
+    ? d3.extent(allData, d => d.value)
+    : [0, 100];
 
-    // Draw lines
-    ctx.lineWidth = 2;
-    const lineGenerator = d3.line()
-      .x(d => xScale(d.timestamp))
-      .y(d => yScale(d.value))
-      .curve(d3.curveMonotoneX)
-      .context(ctx);
+const yPadding = (yDomain[1] - yDomain[0] || 1) * 0.1;
 
-    for (const [signalName, data] of series.entries()) {
-      if (data.length === 0) continue;
-      ctx.strokeStyle = getSignalConfig(signalName).color;
-      ctx.beginPath();
-      lineGenerator(data);
-      ctx.stroke();
-    }
-    ctx.restore();
+const yScale = d3.scaleLinear()
+  .domain([yDomain[0] - yPadding, yDomain[1] + yPadding])
+  .range([height - margin.bottom, margin.top]);
 
-    // Legend - positioned on the right side
-    ctx.textAlign = 'left';
-    ctx.font = '12px "Roboto Mono"';
-    const legendX = width - margin.right + 10; // Position to the right of the chart
-    Array.from(series.keys()).forEach((signalName, i) => {
-      const color = getSignalConfig(signalName).color;
-      const y = margin.top + i * 20;
-      
-      ctx.fillStyle = color;
-      ctx.fillRect(legendX, y, 12, 12);
-      ctx.fillText(signalName, legendX + 18, y + 8);
-    });
+// ---------------- Grid + Axes ----------------
+
+ctx.strokeStyle = "#4B5563";
+ctx.lineWidth = 0.5;
+
+// Horizontal grid + Y labels
+const yTicks = yScale.ticks(5);
+
+yTicks.forEach(tick => {
+  const y = yScale(tick);
+
+  ctx.beginPath();
+  ctx.moveTo(margin.left, y);
+  ctx.lineTo(width - margin.right, y);
+  ctx.stroke();
+
+  ctx.fillStyle = "#D1D5DB";
+  ctx.font = '11px "Roboto Mono"';
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillText(tick.toFixed(1), margin.left - 6, y);
+});
+
+// Vertical grid
+xTicks.forEach(tick => {
+  const x = xScale(tick);
+
+  ctx.beginPath();
+  ctx.moveTo(x, margin.top);
+  ctx.lineTo(x, height - margin.bottom);
+  ctx.stroke();
+});
+
+// X-axis line
+ctx.strokeStyle = "#9CA3AF";
+ctx.lineWidth = 1;
+
+ctx.beginPath();
+ctx.moveTo(margin.left, height - margin.bottom);
+ctx.lineTo(width - margin.right, height - margin.bottom);
+ctx.stroke();
+
+// Time labels
+ctx.fillStyle = "#D1D5DB";
+ctx.font = '11px "Roboto Mono"';
+ctx.textAlign = "center";
+ctx.textBaseline = "top";
+
+xTicks.forEach(tick => {
+  const x = xScale(tick);
+
+  ctx.fillText(
+    d3.timeFormat("%H:%M:%S")(tick),
+    x,
+    height - margin.bottom + 6
+  );
+});
+
+// ---------------- Plot ----------------
+
+ctx.save();
+ctx.beginPath();
+ctx.rect(margin.left, margin.top, innerWidth, innerHeight);
+ctx.clip();
+
+ctx.lineWidth = 2;
+
+const lineGenerator = d3.line()
+  .x(d => xScale(d.timestamp))
+  .y(d => yScale(d.value))
+  .curve(d3.curveMonotoneX)
+  .context(ctx);
+
+for (const [signalName, data] of series.entries()) {
+  if (data.length === 0) continue;
+
+  ctx.strokeStyle = getSignalConfig(signalName).color;
+  ctx.beginPath();
+  lineGenerator(data);
+  ctx.stroke();
+}
+
+ctx.restore();
+
+// ---------------- Legend ----------------
+
+ctx.textAlign = "left";
+ctx.font = '12px "Roboto Mono"';
+
+const legendX = width - margin.right + 10;
+
+Array.from(series.keys()).forEach((signalName, i) => {
+  const color = getSignalConfig(signalName).color;
+  const y = margin.top + i * 20;
+
+  ctx.fillStyle = color;
+  ctx.fillRect(legendX, y, 12, 12);
+
+  ctx.fillStyle = "#D1D5DB";
+  ctx.fillText(signalName, legendX + 18, y + 8);
+});
   };
 
   useImperativeHandle(ref, () => ({
