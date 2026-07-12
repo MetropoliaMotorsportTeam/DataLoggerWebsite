@@ -78,7 +78,7 @@ export const PlotlyLinePlot = forwardRef(({ signalNames }, ref) => {
       x: points.map(p => new Date(p.timestamp)),
       y: points.map(p => p.value),
 
-      type: "scattergl",
+      type: "scatter",
       mode: "lines",
 
       name: signalName,
@@ -133,6 +133,7 @@ export const PlotlyLinePlot = forwardRef(({ signalNames }, ref) => {
         autosize: true,
 
         hovermode: "x unified",
+        hoverdistance: -1,
 
         dragmode: "zoom",
 

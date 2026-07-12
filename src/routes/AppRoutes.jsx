@@ -6,6 +6,7 @@ import DataPage from "../pages/DataPage";
 import SettingsPage from "../pages/SettingsPage";
 import SessionsPage from "../pages/SessionsPage";
 import Packinglist from "../pages/PackingList";
+import PedalMappingPage from "../pages/PedalMapping";
 import LoginPage from "../pages/LoginPage";
 
 
@@ -82,6 +83,17 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <Packinglist />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/pedalmapping"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PedalMappingPage />
             </Layout>
           </ProtectedRoute>
         }

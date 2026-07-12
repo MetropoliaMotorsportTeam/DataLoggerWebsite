@@ -12,6 +12,7 @@ function Layout({ children }) {
     { name: 'Car Settings', path: '/settings' },
     { name: 'Sessions', path: '/sessions' },
     { name: 'Packing List', path: '/packinglist' },
+    { name: 'Pedal Mapping', path: '/pedalmapping' },
   ];
 
   const handleLogout = () => {
