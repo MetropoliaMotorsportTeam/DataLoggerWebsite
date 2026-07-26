@@ -1,13 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 
-// Profile names match DBC VAL_ definitions on ProfileSlotPreset
-const MAPPING_OPTIONS = [
-  { value: 'Linear',    label: 'Linear' },
-  { value: 'Parabolic', label: 'Parabolic' },
-  { value: 'Soft',      label: 'Soft' },
-  { value: 'Stupid',    label: 'Stupid' },
-];
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api';
 
 function Bar({ value, color = '#3b82f6', label }) {
   const pct = Math.max(0, Math.min(100, value ?? 0));
@@ -35,11 +29,24 @@ function Bar({ value, color = '#3b82f6', label }) {
 function PedalMapping() {
   // pending: what's in the dropdown (not yet applied)
   // applied: what was last confirmed with Apply
-  const [pending, setPending]   = useState('');
-  const [applied, setApplied]   = useState('');
-  const [liveData, setLiveData] = useState(null);
-  const [connected, setConnected] = useState(false);
+  const [pending, setPending]       = useState('');
+  const [applied, setApplied]       = useState('');
+  const [liveData, setLiveData]     = useState(null);
+  const [connected, setConnected]   = useState(false);
+  const [profiles, setProfiles]     = useState([]);  // loaded from DBC via API
+  const [profilesLoading, setProfilesLoading] = useState(true);
   const socketRef = useRef(null);
+
+  // Load profiles from DBC on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/pedal/profiles`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setProfiles(data);
+      })
+      .catch(() => {}) // fail silently; dropdown stays empty
+      .finally(() => setProfilesLoading(false));
+  }, []);
 
   useEffect(() => {
     const socket = io('http://localhost:3000');
@@ -61,12 +68,21 @@ function PedalMapping() {
 
   const hasUnappliedChange = pending !== '' && pending !== applied;
 
-  const handleApply = () => {
+  const handleApply = async () => {
+    const profile = profiles.find(o => o.value === pending);
+    try {
+      await fetch(`${API_BASE}/pedal/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile: pending, slot: profile?.slot ?? 0 }),
+      });
+    } catch (err) {
+      console.error('Failed to publish profile:', err);
+    }
     setApplied(pending);
-    // TODO: send command to device/server when that endpoint exists
   };
 
-  const appliedLabel = MAPPING_OPTIONS.find(o => o.value === applied)?.label ?? applied ?? '—';
+  const appliedLabel = profiles.find(o => o.value === applied)?.value ?? applied ?? '—';
 
   return (
     <div
@@ -113,6 +129,7 @@ function PedalMapping() {
             id="pedal-mapping-select"
             value={pending}
             onChange={(e) => setPending(e.target.value)}
+            disabled={profilesLoading || profiles.length === 0}
             style={{
               width: '100%',
               backgroundColor: '#101a2e',
@@ -122,17 +139,19 @@ function PedalMapping() {
               padding: '10px 14px',
               fontSize: 14,
               outline: 'none',
-              cursor: 'pointer',
+              cursor: profilesLoading ? 'wait' : 'pointer',
               appearance: 'none',
               backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E")`,
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'right 14px center',
             }}
           >
-            <option value="" disabled>Select a mapping...</option>
-            {MAPPING_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+            <option value="" disabled>
+              {profilesLoading ? 'Loading from DBC…' : 'Select a mapping...'}
+            </option>
+            {profiles.map((opt) => (
+              <option key={opt.slot} value={opt.value}>
+                {opt.value}
               </option>
             ))}
           </select>
