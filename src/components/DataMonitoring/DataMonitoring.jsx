@@ -303,7 +303,7 @@ function DataMonitoring() {
               <p className="text-xs text-gray-400">{socketStatus}</p>
             </div>
           </div>
-          <div className="mt-4 md:mt-0 flex flex-col items-start md:items-end gap-3">
+          <div className="mt-4 md:mt-0 flex flex-col items-stretch md:items-end gap-3 w-full md:w-auto">
             <button
               type="button"
               onClick={handleLiveModeToggle}
@@ -312,13 +312,13 @@ function DataMonitoring() {
               {isLiveMode ? 'Live mode: ON' : 'Live mode: OFF'}
             </button>
             <div className="flex items-center gap-2">
-              <label htmlFor="timeframe" className="text-xs uppercase tracking-wide text-gray-400">Timeframe</label>
+              <label htmlFor="timeframe" className="text-xs uppercase tracking-wide text-gray-400 shrink-0">Timeframe</label>
               <select
                 id="timeframe"
                 value={timeframe}
                 onChange={(event) => setTimeframe(event.target.value)}
                 disabled={isLiveMode}
-                className="rounded-md border border-gray-600 bg-gray-800/70 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 rounded-md border border-gray-600 bg-gray-800/70 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {TIMEFRAME_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -326,15 +326,11 @@ function DataMonitoring() {
               </select>
             </div>
             <SignalSelector signals={availableSignals} selectedSignals={selectedSignals} toggleSignal={handleSignalChange} />
-            <div className="flex flex-wrap gap-2">
-              
-              
-            </div>
-            <p className="max-w-sm text-right text-xs text-gray-400">
+            <p className="text-xs text-gray-400">
               {saveMessage}
               {persistedSignals.length > 0 ? ` Current backend filter: ${persistedSignals.join(', ')}.` : ''}
             </p>
-            <p className="max-w-sm text-right text-xs text-gray-500">
+            <p className="text-xs text-gray-500">
               {isLiveMode ? 'Live streaming chart is active.' : historicalStatus}
             </p>
           </div>

@@ -91,7 +91,7 @@ function PedalMapping() {
         color: '#e5e7eb',
         backgroundColor: '#0b1120',
         minHeight: '100vh',
-        padding: '32px 24px',
+        padding: 'clamp(16px, 4vw, 32px) clamp(12px, 3vw, 24px)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -234,8 +234,8 @@ function PedalMapping() {
                 style={{
                   marginTop: 20,
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: 12,
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: 10,
                 }}
               >
                 {[

@@ -381,7 +381,7 @@ function Settings() {
           <div>
             <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>DBC</div>
             <select
-              className="mt-1 w-64 rounded px-3 py-2 text-sm"
+              className="mt-1 w-full sm:w-64 rounded px-3 py-2 text-sm"
               style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
               value={selectedDbc}
               onChange={(e) => setSelectedDbc(e.target.value)}

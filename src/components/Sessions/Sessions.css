@@ -12,6 +12,7 @@
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .btn {
@@ -62,16 +63,24 @@
   width: 100%;
   border-collapse: collapse;
   background-color: white;
-  min-width: 600px;
+  min-width: 400px;
 }
 
-.sessions-table th, 
+.sessions-table th,
 .sessions-table td {
-  padding: 12px 15px;
+  padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid #eee;
   vertical-align: middle;
+}
+
+.sessions-table th {
   white-space: nowrap;
+}
+
+.sessions-table td {
+  white-space: normal;
+  word-break: break-word;
 }
 
 .sessions-table th {
@@ -147,11 +156,9 @@
 
 /* make the name column shorter so the Details button appears closer */
 .col-name {
-  width: 320px;
-  max-width: 320px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .session-name-cell span {
@@ -164,7 +171,7 @@
 
 .sessions-table th,
 .sessions-table td {
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .btn-details {

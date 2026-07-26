@@ -36,7 +36,7 @@ export function SignalSelector({
   };
 
   return (
-    <div ref={wrapperRef} className="relative w-72 font-mono">
+    <div ref={wrapperRef} className="relative w-full font-mono">
 
       {/* BUTTON */}
       <button
