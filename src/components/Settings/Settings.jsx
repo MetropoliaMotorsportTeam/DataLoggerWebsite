@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { getAuthHeaders, handleUnauthorized } from '../../utils/api';
 
 function getApiBase() {
   const explicit = import.meta.env.VITE_API_BASE;
@@ -9,7 +10,7 @@ function getApiBase() {
     return firmwareApi.replace(/\/+$/, '').replace(/\/firmware$/, '');
   }
 
-  return 'http://localhost:3000/api';
+  return import.meta.env.VITE_API_BASE || 'http://localhost:3000/api';
 }
 
 function formatFrameId(frameId) {
@@ -35,7 +36,14 @@ function formatRange(signal) {
 }
 
 async function fetchJson(url) {
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: getAuthHeaders(),
+  });
+
+  if (res.status === 401) {
+    handleUnauthorized(res);
+    return null;
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Request failed (${res.status}): ${text || res.statusText}`);
@@ -46,9 +54,7 @@ async function fetchJson(url) {
 async function postJson(url, body) {
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body ?? {}),
   });
 

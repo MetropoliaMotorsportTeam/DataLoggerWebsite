@@ -12,7 +12,7 @@ function Footer() {
         fontFamily: "'Roboto Mono', monospace",
       }}
     >
-      <p>&copy; {new Date().getFullYear()} Metropolia Motorsport. All rights reserved.</p>
+      <p>&copy; {new Date().getFullYear()} LynX. All rights reserved.</p>
     </footer>
   );
 }

@@ -7,12 +7,12 @@ export function StatCard({ label, stats, unit, color }) {
   );
 
   return (
-    <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 flex flex-col justify-between h-full">
+    <div className="rounded-lg p-3 flex flex-col justify-between h-full" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
       <div className="flex justify-between items-center mb-2">
         <span className="font-bold text-lg" style={{ color }}>{label}</span>
-        <span className="text-sm text-gray-400">{unit}</span>
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{unit}</span>
       </div>
-      <div className="grid grid-cols-4 gap-1 text-gray-200">
+      <div className="grid grid-cols-4 gap-1" style={{ color: 'var(--text-primary)' }}>
         <StatItem name="Latest" value={stats.latest} />
         <StatItem name="Avg" value={stats.avg} />
         <StatItem name="Min" value={stats.min} />

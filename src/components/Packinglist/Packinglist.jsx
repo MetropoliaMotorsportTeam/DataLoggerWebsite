@@ -11,7 +11,15 @@ function csvEscape(value) {
   return s;
 }
 
-const API_URL = import.meta.env.VITE_API_BASE;
+const API_URL = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api';
+
+function getAuthHeaders(extra = {}) {
+  const token = sessionStorage.getItem('token');
+  return {
+    ...extra,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 function parseCsvLine(line) {
   const out = [];
@@ -252,6 +260,7 @@ export default function Packinglist() {
 
     const res = await fetch(`${API_URL}/packinglist/upload`, {
       method: "POST",
+      headers: getAuthHeaders(),
       body: formData,
     });
 
@@ -300,7 +309,9 @@ export default function Packinglist() {
   const fetchAvailableLists = async () => {
     setLoadingLists(true);
     try {
-      const res = await fetch(`${API_URL}/packinglist`);
+      const res = await fetch(`${API_URL}/packinglist`, {
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to load lists");
 
       const data = await res.json();
@@ -312,6 +323,7 @@ export default function Packinglist() {
           try {
             const fileRes = await fetch(
               `${API_URL}/packinglist/${encodeURIComponent(file.key)}`,
+              { headers: getAuthHeaders() },
             );
             if (fileRes.ok) {
               const csvText = await fileRes.text();
@@ -367,6 +379,7 @@ export default function Packinglist() {
     try {
       const res = await fetch(
         `${API_URL}/packinglist/file?key=${encodeURIComponent(fileKey)}`,
+        { headers: getAuthHeaders() },
       );
       if (!res.ok) throw new Error("Failed to load CSV");
 
@@ -486,6 +499,7 @@ export default function Packinglist() {
     try {
       const res = await fetch(`${API_URL}/packinglist/upload`, {
         method: "POST",
+        headers: getAuthHeaders(),
         body: formData,
       });
 
@@ -652,6 +666,7 @@ export default function Packinglist() {
     try {
       const res = await fetch(`${API_URL}/packinglist?key=${encodeURIComponent(currentList.key)}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error('Failed to delete list');
 
@@ -674,8 +689,9 @@ export default function Packinglist() {
     formData.append("file", file);
     formData.append("key", currentList.key);
 
-    const res = await fetch("http://localhost:3000/api/packinglist/upload", {
+    const res = await fetch(`${API_URL}/packinglist/upload`, {
       method: "POST",
+      headers: getAuthHeaders(),
       body: formData,
     });
 

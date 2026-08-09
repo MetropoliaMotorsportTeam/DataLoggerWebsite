@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { getApiBase, getAuthHeaders, getSocketUrl } from '../../utils/api';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api';
+const API_BASE = getApiBase();
 
 function Bar({ value, color = '#3b82f6', label }) {
   const pct = Math.max(0, Math.min(100, value ?? 0));
@@ -39,7 +40,9 @@ function PedalMapping() {
 
   // Load profiles from DBC on mount
   useEffect(() => {
-    fetch(`${API_BASE}/pedal/profiles`)
+    fetch(`${API_BASE}/pedal/profiles`, {
+      headers: getAuthHeaders(),
+    })
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setProfiles(data);
@@ -49,7 +52,10 @@ function PedalMapping() {
   }, []);
 
   useEffect(() => {
-    const socket = io('http://localhost:3000');
+    const socket = io(getSocketUrl(), {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+    });
     socketRef.current = socket;
 
     socket.on('connect', () => setConnected(true));
@@ -73,7 +79,10 @@ function PedalMapping() {
     try {
       await fetch(`${API_BASE}/pedal/apply`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionStorage.getItem('token') ? { Authorization: `Bearer ${sessionStorage.getItem('token')}` } : {}),
+        },
         body: JSON.stringify({ profile: pending, slot: profile?.slot ?? 0 }),
       });
     } catch (err) {

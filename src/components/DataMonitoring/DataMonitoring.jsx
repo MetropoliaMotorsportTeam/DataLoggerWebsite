@@ -3,7 +3,6 @@ import { io } from 'socket.io-client';
 import './DataMonitoring.css';
 
 const MAX_DATA_POINTS = 2000;
-const API_BASE_URL = 'http://localhost:3000';
 
 import { TIMEFRAME_OPTIONS } from '../../config/timeframeOptions';
 import { getSignalConfig } from '../../config/signalConfig';
@@ -13,6 +12,7 @@ import {
   getSignalNames,
   getHistoricalSignals,
 } from '../../services/signalService';
+import { getSocketUrl } from '../../utils/api';
 
 // --- UI Components ---
 import { SignalSelector } from './SignalSelector';
@@ -87,7 +87,10 @@ function DataMonitoring() {
   // SOCKET SETUP
 
   useEffect(() => {
-    const socket = io('http://localhost:3000');
+    const socket = io(getSocketUrl(), {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+    });
     socketRef.current = socket;
     const handler = (data) => {
       const frames = data?.decodedFrames || [];
@@ -293,32 +296,48 @@ function DataMonitoring() {
   }, []);
 
   return (
-    <div className="p-4 md:p-6 bg-black min-h-screen text-gray-200" style={{ fontFamily: "'Roboto Mono', monospace" }}>
+    <div className="p-4 md:p-6 min-h-screen" style={{ fontFamily: "'Roboto Mono', monospace", backgroundColor: 'var(--background-base)', color: 'var(--text-primary)' }}>
       <div className="max-w-7xl mx-auto">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+        <header
+          className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 rounded-xl border p-4 md:p-5"
+          style={{ backgroundColor: 'var(--surface-layer)', borderColor: 'var(--primary-accent)' }}
+        >
           <div>
-            <h1 className="text-3xl font-bold text-white">Telemetry Dashboard</h1>
+            <h1 className="text-3xl font-bold" style={{ color: 'var(--primary-accent)' }}>Telemetry Dashboard</h1>
             <div className="flex items-center mt-1">
-              <div className={`w-2 h-2 rounded-full mr-2 ${socketStatus === 'Connected' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-              <p className="text-xs text-gray-400">{socketStatus}</p>
+              <div
+                className="w-2 h-2 rounded-full mr-2 animate-pulse"
+                style={{ backgroundColor: socketStatus === 'Connected' ? 'var(--primary-accent)' : 'var(--warning-attention)' }}
+              ></div>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{socketStatus}</p>
             </div>
           </div>
           <div className="mt-4 md:mt-0 flex flex-col items-start md:items-end gap-3">
             <button
               type="button"
               onClick={handleLiveModeToggle}
-              className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${isLiveMode ? 'border border-blue-500/40 bg-blue-500/10 text-blue-100 hover:bg-blue-500/20' : 'border border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20'}`}
+              style={{
+                border: `1px solid ${isLiveMode ? 'var(--primary-accent)' : 'var(--warning-attention)'}`,
+                backgroundColor: isLiveMode ? 'rgba(200, 255, 0, 0.12)' : 'rgba(255, 193, 7, 0.12)',
+                color: isLiveMode ? 'var(--text-primary)' : 'var(--warning-attention)',
+              }}
+              className="rounded-md px-4 py-2 text-sm font-semibold transition-colors"
             >
               {isLiveMode ? 'Live mode: ON' : 'Live mode: OFF'}
             </button>
             <div className="flex items-center gap-2">
-              <label htmlFor="timeframe" className="text-xs uppercase tracking-wide text-gray-400">Timeframe</label>
+              <label htmlFor="timeframe" className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Timeframe</label>
               <select
                 id="timeframe"
                 value={timeframe}
                 onChange={(event) => setTimeframe(event.target.value)}
                 disabled={isLiveMode}
-                className="rounded-md border border-gray-600 bg-gray-800/70 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{
+                  border: '1px solid var(--primary-accent)',
+                  backgroundColor: 'var(--surface-layer)',
+                  color: 'var(--text-primary)',
+                }}
+                className="rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
               >
                 {TIMEFRAME_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -330,11 +349,11 @@ function DataMonitoring() {
               
               
             </div>
-            <p className="max-w-sm text-right text-xs text-gray-400">
+            <p className="max-w-sm text-right text-xs" style={{ color: 'var(--text-secondary)' }}>
               {saveMessage}
               {persistedSignals.length > 0 ? ` Current backend filter: ${persistedSignals.join(', ')}.` : ''}
             </p>
-            <p className="max-w-sm text-right text-xs text-gray-500">
+            <p className="max-w-sm text-right text-xs" style={{ color: 'var(--text-secondary)' }}>
               {isLiveMode ? 'Live streaming chart is active.' : historicalStatus}
             </p>
           </div>

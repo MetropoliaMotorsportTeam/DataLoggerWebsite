@@ -41,7 +41,12 @@ export function SignalSelector({
       {/* BUTTON */}
       <button
         onClick={() => setIsOpen((v) => !v)}
-        className="flex items-center justify-between w-full px-4 py-2 text-sm text-gray-100 bg-gray-800/60 border border-gray-700 rounded-md"
+        style={{
+          backgroundColor: 'var(--surface-layer)',
+          border: '1px solid var(--primary-accent)',
+          color: 'var(--text-primary)',
+        }}
+        className="flex items-center justify-between w-full px-4 py-2 text-sm rounded-md"
       >
         <span className="truncate">
           {selectedSignals.length > 0
@@ -49,24 +54,29 @@ export function SignalSelector({
             : "Select signals"}
         </span>
 
-        <span className="ml-2 text-gray-400">▾</span>
+        <span className="ml-2" style={{ color: 'var(--primary-accent)' }}>▾</span>
       </button>
 
       {/* DROPDOWN */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-gray-900 border border-gray-700 rounded-md shadow-xl overflow-hidden">
+        <div className="absolute z-50 w-full mt-2 rounded-md shadow-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
 
           {/* SEARCH + RESET */}
-          <div className="p-2 border-b border-gray-700 space-y-2">
+          <div className="p-2 border-b space-y-2" style={{ borderColor: 'var(--primary-accent)' }}>
 
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search signals..."
-              className="w-full px-3 py-2 text-sm bg-gray-800 text-white rounded outline-none"
+              style={{
+                backgroundColor: 'var(--background-base)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--primary-accent)',
+              }}
+              className="w-full px-3 py-2 text-sm rounded outline-none"
             />
 
-            <div className="flex justify-between items-center text-xs text-gray-400">
+            <div className="flex justify-between items-center text-xs" style={{ color: 'var(--text-secondary)' }}>
 
               <span>
                 {selectedSignals.length} selected
@@ -74,7 +84,8 @@ export function SignalSelector({
 
               <button
                 onClick={handleResetAll}
-                className="text-red-400 hover:text-red-300"
+                style={{ color: 'var(--primary-accent)' }}
+                className="hover:opacity-80"
               >
                 Reset all
               </button>
@@ -86,7 +97,7 @@ export function SignalSelector({
           <ul className="max-h-64 overflow-y-auto">
 
             {filtered.length === 0 && (
-              <li className="p-3 text-sm text-gray-500 text-center">
+              <li className="p-3 text-sm text-center" style={{ color: 'var(--text-secondary)' }}>
                 No signals found
               </li>
             )}
@@ -98,14 +109,16 @@ export function SignalSelector({
                 <li
                   key={signal}
                   onClick={() => toggleSignal(signal)}
-                  className="flex items-center gap-3 px-4 h-10 text-sm text-gray-200 hover:bg-blue-600 cursor-pointer select-none"
+                  className="flex items-center gap-3 px-4 h-10 text-sm cursor-pointer select-none"
+                  style={{ color: 'var(--text-primary)', backgroundColor: checked ? 'rgba(200, 255, 0, 0.12)' : 'transparent' }}
                 >
                   <div className="flex items-center justify-center w-4 h-4">
                     <input
                       type="checkbox"
                       checked={checked}
                       readOnly
-                      className="w-4 h-4 accent-blue-500 shrink-0"
+                      style={{ accentColor: 'var(--primary-accent)' }}
+                      className="w-4 h-4 shrink-0"
                     />
                   </div>
 
