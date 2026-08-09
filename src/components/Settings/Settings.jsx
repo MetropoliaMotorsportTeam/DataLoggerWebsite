@@ -10,7 +10,7 @@ function getApiBase() {
     return firmwareApi.replace(/\/+$/, '').replace(/\/firmware$/, '');
   }
 
-  return import.meta.env.VITE_API_BASE || 'http://localhost:3000/api';
+  return import.meta.env.VITE_API_BASE || '/api';
 }
 
 function formatFrameId(frameId) {

@@ -11,7 +11,7 @@ function csvEscape(value) {
   return s;
 }
 
-const API_URL = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_BASE || '/api';
 
 function getAuthHeaders(extra = {}) {
   const token = sessionStorage.getItem('token');

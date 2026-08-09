@@ -12,8 +12,8 @@ function Login() {
     setLoading(true);
     setError("");
     try {
-      const apiBase = import.meta.env.VITE_API_BASE || "";
-      const res = await fetch(`${apiBase}/login`, {
+      const apiBase = import.meta.env.VITE_API_BASE || "/api";
+      const res = await fetch(`${apiBase.replace(/\/+$/, '')}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password })
@@ -36,37 +36,54 @@ function Login() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 text-gray-200 bg-gray-950"
-      style={{ fontFamily: "'Roboto Mono', monospace" }}
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        fontFamily: "'Roboto Mono', monospace",
+        backgroundColor: 'var(--background-base)',
+        color: 'var(--text-primary)',
+      }}
     >
-      <div className="w-full max-w-md bg-gray-900/50 border border-gray-700 rounded-lg p-6 shadow-2xl">
+      <div
+        className="w-full max-w-md rounded-xl border p-6 shadow-2xl"
+        style={{
+          backgroundColor: 'var(--surface-layer)',
+          borderColor: 'var(--primary-accent)',
+        }}
+      >
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">Secure Access</h1>
-        <p className="text-gray-400 text-sm">Enter your password to continue</p>
-      </div>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--primary-accent)' }}>Secure Access</h1>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Enter your password to continue</p>
+        </div>
 
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-        minLength={8}
-        placeholder="Enter your password"
-        className={`w-full bg-gray-800 border ${
-          error ? "border-red-500" : "border-gray-700"
-        } rounded-lg p-3 text-center text-xl tracking-widest text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-      />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+          minLength={8}
+          placeholder="Enter your password"
+          className="w-full rounded-lg border p-3 text-center text-xl tracking-widest text-white placeholder-gray-500 focus:outline-none focus:ring-2"
+          style={{
+            backgroundColor: 'var(--background-base)',
+            borderColor: error ? 'var(--warning-attention)' : 'var(--primary-accent)',
+            boxShadow: error ? '0 0 0 1px var(--warning-attention)' : '0 0 0 1px transparent',
+          }}
+        />
 
         {error && (
-          <p className="text-red-500 text-sm mt-2 text-center">{error}</p>
+          <p className="mt-2 text-center text-sm" style={{ color: 'var(--warning-attention)' }}>{error}</p>
         )}
 
         <button
           onClick={handleSubmit}
-          className="mt-5 w-full bg-blue-600 hover:bg-blue-700 transition rounded-lg p-3 text-white font-semibold"
+          className="mt-5 w-full rounded-lg p-3 font-semibold transition-colors"
+          style={{
+            backgroundColor: 'var(--primary-accent)',
+            color: 'var(--background-base)',
+          }}
           disabled={loading}
         >
-          {loading ? "Signing in..." : "Enter"}
+          {loading ? 'Signing in...' : 'Enter'}
         </button>
       </div>
     </div>

@@ -1,7 +1,7 @@
 export function getApiBase() {
-  const envBase = import.meta.env.VITE_API_BASE || '';
+  const envBase = String(import.meta.env.VITE_API_BASE || '').trim();
   if (envBase) return envBase.replace(/\/+$/, '');
-  return 'http://localhost:3000/api';
+  return '/api';
 }
 
 export function getSocketUrl() {
@@ -15,7 +15,7 @@ export function getSocketUrl() {
     return window.location.origin;
   }
 
-  return 'http://localhost:3000';
+  return '';
 }
 
 export function getAuthHeaders(extra = {}) {
