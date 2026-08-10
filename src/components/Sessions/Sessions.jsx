@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { CSVLink } from "react-csv";
 import "./Sessions.css";
+import { getAuthHeaders, handleUnauthorized } from '../../utils/api';
 
 const API_URL = import.meta.env.VITE_API_BASE;
 
@@ -30,10 +31,13 @@ const Sessions = () => {
 
       const res = await fetch(`${API_URL}/sessions`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
       });
+
+      if (res.status === 401) {
+        handleUnauthorized(res);
+        return;
+      }
 
       if (!res.ok) throw new Error("Failed to load sessions");
 
@@ -76,9 +80,7 @@ const Sessions = () => {
     setSaving(true);
     const res = await fetch(`${API_URL}/sessions`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         columns: nextColumns,
         data: nextData,

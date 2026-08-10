@@ -1,7 +1,15 @@
-const API_BASE_URL = 'http://localhost:3000/api';
+import { getApiBase, getAuthHeaders, handleUnauthorized } from '../utils/api';
+
+const API_BASE_URL = getApiBase();
 
 export async function getSignalNames() {
-  const response = await fetch(`${API_BASE_URL}/signal/names`);
+  const response = await fetch(`${API_BASE_URL}/signal/names`, {
+    headers: getAuthHeaders(),
+  });
+
+  if (response.status === 401) {
+    handleUnauthorized(response);
+  }
 
   if (!response.ok) {
     throw new Error(`Name request failed (${response.status})`);
@@ -15,6 +23,7 @@ export async function getHistoricalSignals(names, from, to) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({
       names,
@@ -22,6 +31,10 @@ export async function getHistoricalSignals(names, from, to) {
       to,
     }),
   });
+
+  if (response.status === 401) {
+    handleUnauthorized(response);
+  }
 
   if (!response.ok) {
     throw new Error(`History request failed (${response.status})`);

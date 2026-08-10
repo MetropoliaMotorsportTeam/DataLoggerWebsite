@@ -30,7 +30,7 @@ function Layout({ children }) {
             {/* Logo and Team Name */}
             <Link to="/" className="flex items-center space-x-3">
               <img src="/logofront.PNG" alt="Logo" className="h-16" />
-              <span className="font-bold text-xl hidden sm:block" style={{ color: 'var(--text-primary)' }}>Metropolia Motorsport</span>
+              <span className="font-bold text-xl hidden sm:block" style={{ color: 'var(--text-primary)' }}>LynX</span>
             </Link>
             
             {/* Desktop Navigation */}

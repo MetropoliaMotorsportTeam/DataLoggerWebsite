@@ -103,13 +103,13 @@ export const PlotlyLinePlot = forwardRef(({ signalNames }, ref) => {
       <div
         style={{
           height: "450px",
-          background: "#111827",
+          background: "var(--background-base)",
           borderRadius: "10px",
-          border: "1px solid #374151",
+          border: "1px solid var(--primary-accent)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "#9CA3AF",
+          color: "var(--text-secondary)",
           fontSize: "18px",
           fontWeight: 500
         }}
@@ -127,8 +127,8 @@ export const PlotlyLinePlot = forwardRef(({ signalNames }, ref) => {
 
       layout={{
 
-        paper_bgcolor: "#111827",
-        plot_bgcolor: "#111827",
+        paper_bgcolor: "var(--background-base)",
+        plot_bgcolor: "var(--background-base)",
 
         autosize: true,
 
@@ -138,7 +138,7 @@ export const PlotlyLinePlot = forwardRef(({ signalNames }, ref) => {
         dragmode: "zoom",
 
         font: {
-          color: "white"
+          color: "var(--text-primary)"
         },
 
         margin: {

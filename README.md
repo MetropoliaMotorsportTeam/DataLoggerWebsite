@@ -1,12 +1,23 @@
-# React + Vite
+# DataLogger Website
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This frontend is a Vite + React application for the DataLogger dashboard.
 
-Currently, two official plugins are available:
+## Production checklist before building
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Set `VITE_API_BASE` to the production API base URL.
+- If you are using a local dev proxy, set `VITE_BACKEND_URL` to the backend host.
+- Make sure the backend CORS policy allows your frontend domain.
+- Ensure your login and API requests use the production URL rather than `localhost`.
 
-## Expanding the ESLint configuration
+## Build for production
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+VITE_API_BASE=https://your-api-domain.com/api npm run build
+```
+
+## Deploy to EC2
+
+- Copy the generated `dist` contents to your web server root.
+- Serve them with nginx as a SPA.
+- Point the API base URL to your EC2-hosted backend.
