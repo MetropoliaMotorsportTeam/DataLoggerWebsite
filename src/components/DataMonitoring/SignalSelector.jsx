@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import './DataMonitoring.css';
 
 export function SignalSelector({
   signals,
@@ -36,70 +37,38 @@ export function SignalSelector({
   };
 
   return (
-    <div ref={wrapperRef} className="relative w-72 font-mono">
-
-      {/* BUTTON */}
+    <div ref={wrapperRef} className="relative w-full sm:w-72 font-mono">
       <button
         onClick={() => setIsOpen((v) => !v)}
-        style={{
-          backgroundColor: 'var(--surface-layer)',
-          border: '1px solid var(--primary-accent)',
-          color: 'var(--text-primary)',
-        }}
-        className="flex items-center justify-between w-full px-4 py-2 text-sm rounded-md"
+        className="signal-selector-button"
       >
         <span className="truncate">
-          {selectedSignals.length > 0
-            ? `${selectedSignals.length} selected`
-            : "Select signals"}
+          {selectedSignals.length > 0 ? `${selectedSignals.length} selected` : 'Select signals'}
         </span>
-
-        <span className="ml-2" style={{ color: 'var(--primary-accent)' }}>▾</span>
+        <span className="signal-selector-chevron">▾</span>
       </button>
 
-      {/* DROPDOWN */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-2 rounded-md shadow-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
-
-          {/* SEARCH + RESET */}
-          <div className="p-2 border-b space-y-2" style={{ borderColor: 'var(--primary-accent)' }}>
-
+        <div className="signal-selector-dropdown">
+          <div className="signal-selector-header">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search signals..."
-              style={{
-                backgroundColor: 'var(--background-base)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--primary-accent)',
-              }}
-              className="w-full px-3 py-2 text-sm rounded outline-none"
+              className="signal-selector-input"
             />
 
-            <div className="flex justify-between items-center text-xs" style={{ color: 'var(--text-secondary)' }}>
-
-              <span>
-                {selectedSignals.length} selected
-              </span>
-
-              <button
-                onClick={handleResetAll}
-                style={{ color: 'var(--primary-accent)' }}
-                className="hover:opacity-80"
-              >
+            <div className="signal-selector-toolbar">
+              <span>{selectedSignals.length} selected</span>
+              <button onClick={handleResetAll} className="signal-selector-reset">
                 Reset all
               </button>
-
             </div>
           </div>
 
-          {/* LIST */}
-          <ul className="max-h-64 overflow-y-auto">
-
+          <ul className="signal-selector-list custom-scrollbar">
             {filtered.length === 0 && (
-              <li className="p-3 text-sm text-center" style={{ color: 'var(--text-secondary)' }}>
-                No signals found
-              </li>
+              <li className="signal-selector-empty">No signals found</li>
             )}
 
             {filtered.map((signal) => {
@@ -109,22 +78,12 @@ export function SignalSelector({
                 <li
                   key={signal}
                   onClick={() => toggleSignal(signal)}
-                  className="flex items-center gap-3 px-4 h-10 text-sm cursor-pointer select-none"
-                  style={{ color: 'var(--text-primary)', backgroundColor: checked ? 'rgba(200, 255, 0, 0.12)' : 'transparent' }}
+                  className={`signal-selector-item ${checked ? 'selected' : ''}`}
                 >
-                  <div className="flex items-center justify-center w-4 h-4">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      readOnly
-                      style={{ accentColor: 'var(--primary-accent)' }}
-                      className="w-4 h-4 shrink-0"
-                    />
+                  <div className="signal-selector-checkbox">
+                    <input type="checkbox" checked={checked} readOnly className="signal-selector-checkbox-input" />
                   </div>
-
-                  <span className="truncate leading-none">
-                    {signal}
-                  </span>
+                  <span className="truncate">{signal}</span>
                 </li>
               );
             })}

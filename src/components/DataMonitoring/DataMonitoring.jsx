@@ -296,85 +296,102 @@ function DataMonitoring() {
   }, []);
 
   return (
-    <div className="p-4 md:p-6 min-h-screen" style={{ fontFamily: "'Roboto Mono', monospace", backgroundColor: 'var(--background-base)', color: 'var(--text-primary)' }}>
-      <div className="max-w-7xl mx-auto">
-        <header
-          className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 rounded-xl border p-4 md:p-5"
-          style={{ backgroundColor: 'var(--surface-layer)', borderColor: 'var(--primary-accent)' }}
-        >
-          <div>
-            <h1 className="text-3xl font-bold" style={{ color: 'var(--primary-accent)' }}>Telemetry Dashboard</h1>
-            <div className="flex items-center mt-1">
-              <div
-                className="w-2 h-2 rounded-full mr-2 animate-pulse"
-                style={{ backgroundColor: socketStatus === 'Connected' ? 'var(--primary-accent)' : 'var(--warning-attention)' }}
-              ></div>
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{socketStatus}</p>
+    <div className="data-monitoring-shell">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <header className="monitoring-header">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="monitoring-title">Telemetry Dashboard</h1>
+              <span className={`monitoring-status-pill ${socketStatus === 'Connected' ? 'connected' : 'warning'}`}>
+                <span className="monitoring-dot" />
+                {socketStatus}
+              </span>
             </div>
+            <p className="monitoring-subtitle">
+              Monitor vehicle telemetry in real-time or review historical data. Use the controls below to select signals and timeframes.
+            </p>
           </div>
-          <div className="mt-4 md:mt-0 flex flex-col items-start md:items-end gap-3">
-            <button
-              type="button"
-              onClick={handleLiveModeToggle}
-              style={{
-                border: `1px solid ${isLiveMode ? 'var(--primary-accent)' : 'var(--warning-attention)'}`,
-                backgroundColor: isLiveMode ? 'rgba(200, 255, 0, 0.12)' : 'rgba(255, 193, 7, 0.12)',
-                color: isLiveMode ? 'var(--text-primary)' : 'var(--warning-attention)',
-              }}
-              className="rounded-md px-4 py-2 text-sm font-semibold transition-colors"
-            >
-              {isLiveMode ? 'Live mode: ON' : 'Live mode: OFF'}
-            </button>
-            <div className="flex items-center gap-2">
-              <label htmlFor="timeframe" className="text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>Timeframe</label>
-              <select
-                id="timeframe"
-                value={timeframe}
-                onChange={(event) => setTimeframe(event.target.value)}
-                disabled={isLiveMode}
-                style={{
-                  border: '1px solid var(--primary-accent)',
-                  backgroundColor: 'var(--surface-layer)',
-                  color: 'var(--text-primary)',
-                }}
-                className="rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2"
+
+          <div className="monitoring-toolbar">
+            <div className="monitoring-control-card">
+              <button
+                type="button"
+                onClick={handleLiveModeToggle}
+                className={`monitoring-toggle ${isLiveMode ? 'live' : 'history'}`}
               >
-                {TIMEFRAME_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+                {isLiveMode ? 'Live mode: ON' : 'Live mode: OFF'}
+              </button>
+
+              <div className="monitoring-control-row">
+                <label htmlFor="timeframe" className="monitoring-control-label">Timeframe</label>
+                <select
+                  id="timeframe"
+                  value={timeframe}
+                  onChange={(event) => setTimeframe(event.target.value)}
+                  disabled={isLiveMode}
+                  className="monitoring-select"
+                >
+                  {TIMEFRAME_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <SignalSelector signals={availableSignals} selectedSignals={selectedSignals} toggleSignal={handleSignalChange} />
             </div>
-            <SignalSelector signals={availableSignals} selectedSignals={selectedSignals} toggleSignal={handleSignalChange} />
-            <div className="flex flex-wrap gap-2">
-              
-              
+
+            <div className="monitoring-meta-card">
+              <p>{saveMessage}{persistedSignals.length > 0 ? ` Current backend filter: ${persistedSignals.join(', ')}.` : ''}</p>
+              <p>{isLiveMode ? 'Live streaming chart is active.' : historicalStatus}</p>
             </div>
-            <p className="max-w-sm text-right text-xs" style={{ color: 'var(--text-secondary)' }}>
-              {saveMessage}
-              {persistedSignals.length > 0 ? ` Current backend filter: ${persistedSignals.join(', ')}.` : ''}
-            </p>
-            <p className="max-w-sm text-right text-xs" style={{ color: 'var(--text-secondary)' }}>
-              {isLiveMode ? 'Live streaming chart is active.' : historicalStatus}
-            </p>
           </div>
         </header>
 
-        <main className="grid grid-cols-1 gap-6">
-          {selectedSignals.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {selectedSignals.map(signal => {
-                const config = getSignalConfig(signal);
-                return <StatCard key={signal} label={signal} stats={stats[signal] || {}} unit={config.unit} color={config.color} />;
-              })}
+        <main className="monitoring-main">
+          <section className="monitoring-section-card">
+            <div className="monitoring-section-heading">
+              <div>
+                <h2 className="monitoring-section-title">Signal overview</h2>
+                <p className="monitoring-section-copy">Key statistics.</p>
+              </div>
+              <span className="monitoring-badge">{selectedSignals.length} active</span>
             </div>
-          )}
-          
-          <div>
-            <PlotlyLinePlot
-            ref={plotRef}
-            signalNames={selectedSignals}
-            />
-          </div>
+
+            {selectedSignals.length > 0 ? (
+              <div className="monitoring-stat-grid">
+                {selectedSignals.map((signal) => {
+                  const config = getSignalConfig(signal);
+                  return (
+                    <StatCard
+                      key={signal}
+                      label={signal}
+                      stats={stats[signal] || {}}
+                      unit={config.unit}
+                      color={config.color}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="monitoring-empty-state">
+                <p>Select one or more signals.</p>
+              </div>
+            )}
+          </section>
+
+          <section className="monitoring-section-card">
+            <div className="monitoring-section-heading">
+              <div>
+                <h2 className="monitoring-section-title">Trace view</h2>
+                <p className="monitoring-section-copy">{isLiveMode ? 'Streaming data from the backend.' : 'Historical values loaded from the selected timeframe.'}</p>
+              </div>
+              <span className={`monitoring-badge ${isLiveMode ? 'live' : 'history'}`}>{isLiveMode ? 'LIVE' : 'HISTORY'}</span>
+            </div>
+
+            <PlotlyLinePlot ref={plotRef} signalNames={selectedSignals} />
+          </section>
         </main>
       </div>
     </div>
