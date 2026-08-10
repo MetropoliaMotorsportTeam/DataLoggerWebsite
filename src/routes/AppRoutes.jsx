@@ -91,11 +91,9 @@ function AppRoutes() {
       <Route
         path="/pedalmapping"
         element={
-          <ProtectedRoute>
-            <Layout>
-              <PedalMappingPage />
-            </Layout>
-          </ProtectedRoute>
+          <Layout>
+            <PedalMappingPage />
+          </Layout>
         }
       />
     </Routes>

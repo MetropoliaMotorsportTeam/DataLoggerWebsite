@@ -320,9 +320,6 @@ function DataMonitoring() {
                 {isLiveMode ? 'Live mode: ON' : 'Live mode: OFF'}
               </button>
             </div>
-              >
-                {isLiveMode ? 'Live mode: ON' : 'Live mode: OFF'}
-              </button>
 
               <div className="monitoring-control-row">
                 <label htmlFor="timeframe" className="monitoring-control-label">Timeframe</label>
@@ -343,7 +340,6 @@ function DataMonitoring() {
 
               <SignalSelector signals={availableSignals} selectedSignals={selectedSignals} toggleSignal={handleSignalChange} />
             </div>
-            <SignalSelector signals={availableSignals} selectedSignals={selectedSignals} toggleSignal={handleSignalChange} />
             <div className="monitoring-meta-card">
               <p className="text-xs text-gray-400">
                 {saveMessage}
@@ -353,7 +349,6 @@ function DataMonitoring() {
                 {isLiveMode ? 'Live streaming chart is active.' : historicalStatus}
               </p>
             </div>
-          </div>
         </header>
 
         <main className="monitoring-main">
