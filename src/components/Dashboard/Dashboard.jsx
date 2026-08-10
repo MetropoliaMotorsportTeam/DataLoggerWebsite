@@ -26,7 +26,11 @@ function Dashboard() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch('/api/status');
+        const response = await fetch('/api/status', {
+          headers: {
+            ...(sessionStorage.getItem('token') ? { Authorization: `Bearer ${sessionStorage.getItem('token')}` } : {}),
+          },
+        });
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }

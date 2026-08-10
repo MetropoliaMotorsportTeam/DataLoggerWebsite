@@ -3,7 +3,6 @@ import { io } from 'socket.io-client';
 import './DataMonitoring.css';
 
 const MAX_DATA_POINTS = 2000;
-const API_BASE_URL = 'http://localhost:3000';
 
 import { TIMEFRAME_OPTIONS } from '../../config/timeframeOptions';
 import { getSignalConfig } from '../../config/signalConfig';
@@ -13,6 +12,7 @@ import {
   getSignalNames,
   getHistoricalSignals,
 } from '../../services/signalService';
+import { getSocketUrl } from '../../utils/api';
 
 // --- UI Components ---
 import { SignalSelector } from './SignalSelector';
@@ -87,7 +87,10 @@ function DataMonitoring() {
   // SOCKET SETUP
 
   useEffect(() => {
-    const socket = io('http://localhost:3000');
+    const socket = io(getSocketUrl(), {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+    });
     socketRef.current = socket;
     const handler = (data) => {
       const frames = data?.decodedFrames || [];
@@ -293,65 +296,109 @@ function DataMonitoring() {
   }, []);
 
   return (
-    <div className="p-4 md:p-6 bg-black min-h-screen text-gray-200" style={{ fontFamily: "'Roboto Mono', monospace" }}>
-      <div className="max-w-7xl mx-auto">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Telemetry Dashboard</h1>
-            <div className="flex items-center mt-1">
-              <div className={`w-2 h-2 rounded-full mr-2 ${socketStatus === 'Connected' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-              <p className="text-xs text-gray-400">{socketStatus}</p>
+    <div className="data-monitoring-shell">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <header className="monitoring-header">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="monitoring-title">Telemetry Dashboard</h1>
+              <span className={`monitoring-status-pill ${socketStatus === 'Connected' ? 'connected' : 'warning'}`}>
+                <span className="monitoring-dot" />
+                {socketStatus}
+              </span>
             </div>
+            <p className="monitoring-subtitle">
+              Monitor vehicle telemetry in real-time or review historical data. Use the controls below to select signals and timeframes.
+            </p>
           </div>
-          <div className="mt-4 md:mt-0 flex flex-col items-stretch md:items-end gap-3 w-full md:w-auto">
-            <button
-              type="button"
-              onClick={handleLiveModeToggle}
-              className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${isLiveMode ? 'border border-blue-500/40 bg-blue-500/10 text-blue-100 hover:bg-blue-500/20' : 'border border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20'}`}
-            >
-              {isLiveMode ? 'Live mode: ON' : 'Live mode: OFF'}
-            </button>
-            <div className="flex items-center gap-2">
-              <label htmlFor="timeframe" className="text-xs uppercase tracking-wide text-gray-400 shrink-0">Timeframe</label>
-              <select
-                id="timeframe"
-                value={timeframe}
-                onChange={(event) => setTimeframe(event.target.value)}
-                disabled={isLiveMode}
-                className="flex-1 rounded-md border border-gray-600 bg-gray-800/70 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+<div className="mt-4 md:mt-0 flex flex-col items-stretch md:items-end gap-3 w-full md:w-auto monitoring-toolbar">
+            <div className="monitoring-control-card">
+              <button
+                type="button"
+                onClick={handleLiveModeToggle}
+                className={`monitoring-toggle ${isLiveMode ? 'live' : 'history'} rounded-md px-4 py-2 text-sm font-semibold transition-colors ${isLiveMode ? 'border border-blue-500/40 bg-blue-500/10 text-blue-100 hover:bg-blue-500/20' : 'border border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20'}`}>
+                {isLiveMode ? 'Live mode: ON' : 'Live mode: OFF'}
+              </button>
+            </div>
               >
-                {TIMEFRAME_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+                {isLiveMode ? 'Live mode: ON' : 'Live mode: OFF'}
+              </button>
+
+              <div className="monitoring-control-row">
+                <label htmlFor="timeframe" className="monitoring-control-label">Timeframe</label>
+                <select
+                  id="timeframe"
+                  value={timeframe}
+                  onChange={(event) => setTimeframe(event.target.value)}
+                  disabled={isLiveMode}
+                  className="monitoring-select"
+                >
+                  {TIMEFRAME_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <SignalSelector signals={availableSignals} selectedSignals={selectedSignals} toggleSignal={handleSignalChange} />
             </div>
             <SignalSelector signals={availableSignals} selectedSignals={selectedSignals} toggleSignal={handleSignalChange} />
-            <p className="text-xs text-gray-400">
-              {saveMessage}
-              {persistedSignals.length > 0 ? ` Current backend filter: ${persistedSignals.join(', ')}.` : ''}
-            </p>
-            <p className="text-xs text-gray-500">
-              {isLiveMode ? 'Live streaming chart is active.' : historicalStatus}
-            </p>
+            <div className="monitoring-meta-card">
+              <p className="text-xs text-gray-400">
+                {saveMessage}
+                {persistedSignals.length > 0 ? ` Current backend filter: ${persistedSignals.join(', ')}.` : ''}
+              </p>
+              <p className="text-xs text-gray-500">
+                {isLiveMode ? 'Live streaming chart is active.' : historicalStatus}
+              </p>
+            </div>
           </div>
         </header>
 
-        <main className="grid grid-cols-1 gap-6">
-          {selectedSignals.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {selectedSignals.map(signal => {
-                const config = getSignalConfig(signal);
-                return <StatCard key={signal} label={signal} stats={stats[signal] || {}} unit={config.unit} color={config.color} />;
-              })}
+        <main className="monitoring-main">
+          <section className="monitoring-section-card">
+            <div className="monitoring-section-heading">
+              <div>
+                <h2 className="monitoring-section-title">Signal overview</h2>
+                <p className="monitoring-section-copy">Key statistics.</p>
+              </div>
+              <span className="monitoring-badge">{selectedSignals.length} active</span>
             </div>
-          )}
-          
-          <div>
-            <PlotlyLinePlot
-            ref={plotRef}
-            signalNames={selectedSignals}
-            />
-          </div>
+
+            {selectedSignals.length > 0 ? (
+              <div className="monitoring-stat-grid">
+                {selectedSignals.map((signal) => {
+                  const config = getSignalConfig(signal);
+                  return (
+                    <StatCard
+                      key={signal}
+                      label={signal}
+                      stats={stats[signal] || {}}
+                      unit={config.unit}
+                      color={config.color}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="monitoring-empty-state">
+                <p>Select one or more signals.</p>
+              </div>
+            )}
+          </section>
+
+          <section className="monitoring-section-card">
+            <div className="monitoring-section-heading">
+              <div>
+                <h2 className="monitoring-section-title">Trace view</h2>
+                <p className="monitoring-section-copy">{isLiveMode ? 'Streaming data from the backend.' : 'Historical values loaded from the selected timeframe.'}</p>
+              </div>
+              <span className={`monitoring-badge ${isLiveMode ? 'live' : 'history'}`}>{isLiveMode ? 'LIVE' : 'HISTORY'}</span>
+            </div>
+
+            <PlotlyLinePlot ref={plotRef} signalNames={selectedSignals} />
+          </section>
         </main>
       </div>
     </div>

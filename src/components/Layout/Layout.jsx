@@ -29,11 +29,11 @@ function Layout({ children }) {
       {/* Header */}
       <header className="sticky top-0 z-20" style={{ backgroundColor: 'var(--surface-layer)', borderBottom: '1px solid var(--primary-accent)' }}>
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center h-14">
-            {/* Logo */}
+<div className="flex justify-between items-center h-16">
+            {/* Logo and Team Name */}
             <Link to="/" className="flex items-center space-x-3" onClick={closeMenu}>
-              <img src="/logofront.PNG" alt="Logo" className="h-10" />
-              <span className="font-bold text-lg hidden sm:block" style={{ color: 'var(--text-primary)' }}>Metropolia Motorsport</span>
+              <img src="/logofront.PNG" alt="Logo" className="h-16" />
+              <span className="font-bold text-xl hidden sm:block" style={{ color: 'var(--text-primary)' }}>LynX</span>
             </Link>
 
             {/* Desktop Navigation */}
