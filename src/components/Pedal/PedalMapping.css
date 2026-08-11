@@ -1,0 +1,256 @@
+.pedal-mapping-shell {
+  min-height: 100vh;
+  padding: 1.25rem;
+  font-family: "Roboto Mono", monospace;
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(200, 255, 0, 0.12),
+      transparent 35%
+    ),
+    var(--background-base);
+  color: var(--text-primary);
+}
+
+.pedal-mapping-header {
+  margin-bottom: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(200, 255, 0, 0.24);
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(12, 20, 18, 0.96),
+      rgba(20, 28, 24, 0.9)
+    );
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+}
+
+.pedal-mapping-title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--primary-accent);
+  letter-spacing: 0.02em;
+}
+
+.pedal-mapping-subtitle {
+  margin: 0.4rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.pedal-mapping-info {
+  margin-top: 0.8rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.06em;
+}
+
+.pedal-mapping-card {
+  border: 1px solid rgba(200, 255, 0, 0.14);
+  border-radius: 1rem;
+  background: rgba(15, 22, 18, 0.9);
+  overflow: hidden;
+}
+
+.pedal-mapping-chart {
+  width: 100%;
+  min-height: 420px;
+  padding: 1rem;
+  background: rgba(6, 10, 8, 0.9);
+  border-bottom: 1px solid rgba(200, 255, 0, 0.12);
+}
+
+.pedal-mapping-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.grid-line {
+  stroke: rgba(200, 255, 0, 0.12);
+  stroke-width: 1;
+  stroke-dasharray: 4 6;
+}
+
+.zero-line {
+  stroke: rgba(200, 255, 0, 0.5);
+  stroke-width: 1.5;
+}
+
+.axis-label {
+  fill: var(--text-secondary);
+  font-family: "Roboto Mono", monospace;
+  font-size: 12px;
+}
+
+.axis-title {
+  fill: var(--primary-accent);
+  font-family: "Roboto Mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.mapping-line {
+  stroke: var(--primary-accent);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(
+    0 0 6px rgba(200, 255, 0, 0.65)
+  );
+}
+
+.mapping-point {
+  fill: #0f1612;
+  stroke: var(--primary-accent);
+  stroke-width: 3;
+  cursor: ns-resize;
+  transition:
+    r 120ms ease,
+    fill 120ms ease,
+    filter 120ms ease;
+  touch-action: none;
+}
+
+.mapping-point:hover {
+  fill: var(--primary-accent);
+  filter:
+    drop-shadow(0 0 5px rgba(200, 255, 0, 0.8))
+    drop-shadow(0 0 12px rgba(200, 255, 0, 0.35));
+}
+
+.center-point {
+  r: 9;
+  fill: var(--primary-accent);
+  stroke: #0f1612;
+  stroke-width: 4;
+}
+
+.point-value {
+  fill: var(--text-secondary);
+  font-family: "Roboto Mono", monospace;
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.mapping-values {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(70px, 1fr));
+  gap: 0.6rem;
+  padding: 1rem;
+  border-bottom: 1px solid rgba(200, 255, 0, 0.12);
+}
+
+.mapping-value {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mapping-value label {
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.mapping-value input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.35rem;
+  border: 1px solid rgba(200, 255, 0, 0.18);
+  border-radius: 0.55rem;
+  background: var(--surface-layer);
+  color: var(--text-primary);
+  font-family: "Roboto Mono", monospace;
+  font-size: 0.8rem;
+  text-align: center;
+  outline: none;
+}
+
+.mapping-value input:focus {
+  border-color: var(--primary-accent);
+  box-shadow: 0 0 0 2px rgba(200, 255, 0, 0.08);
+}
+
+.pedal-mapping-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.mapping-button {
+  min-width: 180px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.7rem;
+  font-family: "Roboto Mono", monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.mapping-button:hover {
+  transform: translateY(-1px);
+}
+
+.mapping-button.save {
+  border: 1px solid var(--primary-accent);
+  background: var(--primary-accent);
+  color: #0a0f0c;
+  box-shadow:
+    0 0 15px rgba(200, 255, 0, 0.25),
+    0 0 35px rgba(200, 255, 0, 0.08);
+}
+
+.mapping-button.save:hover {
+  box-shadow:
+    0 0 20px rgba(200, 255, 0, 0.4),
+    0 0 45px rgba(200, 255, 0, 0.12);
+}
+
+.mapping-button.reset {
+  border: 1px solid rgba(200, 255, 0, 0.35);
+  background: transparent;
+  color: var(--primary-accent);
+}
+
+.mapping-button.reset:hover {
+  background: rgba(200, 255, 0, 0.08);
+}
+
+@media (max-width: 768px) {
+  .pedal-mapping-shell {
+    padding: 0.7rem;
+  }
+
+  .pedal-mapping-title {
+    font-size: 1.3rem;
+  }
+
+  .pedal-mapping-chart {
+    min-height: 320px;
+    padding: 0.4rem;
+  }
+
+  .mapping-values {
+    grid-template-columns: repeat(4, minmax(60px, 1fr));
+  }
+
+  .pedal-mapping-actions {
+    flex-direction: column;
+  }
+
+  .mapping-button {
+    width: 100%;
+  }
+}
