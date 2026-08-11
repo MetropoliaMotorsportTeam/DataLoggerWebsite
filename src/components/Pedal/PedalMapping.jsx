@@ -1,286 +1,294 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
-import { getApiBase, getAuthHeaders, getSocketUrl } from '../../utils/api';
+import { useState } from "react";
+import "./PedalMapping.css";
 
-const API_BASE = getApiBase();
+const POINT_COUNT = 21;
 
-function Bar({ value, color = '#3b82f6', label }) {
-  const pct = Math.max(0, Math.min(100, value ?? 0));
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12, color: '#9ca3af' }}>
-        <span>{label}</span>
-        <span style={{ color: '#e5e7eb', fontWeight: 600 }}>{pct.toFixed(1)} %</span>
-      </div>
-      <div style={{ background: '#1a2540', borderRadius: 6, height: 14, overflow: 'hidden' }}>
-        <div
-          style={{
-            width: `${pct}%`,
-            height: '100%',
-            background: color,
-            borderRadius: 6,
-            transition: 'width 60ms linear',
-          }}
-        />
-      </div>
-    </div>
-  );
-}
+const DEFAULT_MAPPING = Array.from(
+  { length: POINT_COUNT },
+  (_, i) => -100 + i * 10
+);
 
-function PedalMapping() {
-  // pending: what's in the dropdown (not yet applied)
-  // applied: what was last confirmed with Apply
-  const [pending, setPending]       = useState('');
-  const [applied, setApplied]       = useState('');
-  const [liveData, setLiveData]     = useState(null);
-  const [connected, setConnected]   = useState(false);
-  const [profiles, setProfiles]     = useState([]);  // loaded from DBC via API
-  const [profilesLoading, setProfilesLoading] = useState(true);
-  const socketRef = useRef(null);
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-  // Load profiles from DBC on mount
-  useEffect(() => {
-    fetch(`${API_BASE}/pedal/profiles`, {
-      headers: getAuthHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setProfiles(data);
-      })
-      .catch(() => {}) // fail silently; dropdown stays empty
-      .finally(() => setProfilesLoading(false));
-  }, []);
+export default function PedalMapping() {
+  const [mapping, setMapping] = useState(DEFAULT_MAPPING);
 
-  useEffect(() => {
-    const socket = io(getSocketUrl(), {
-      path: '/socket.io',
-      transports: ['websocket', 'polling'],
-    });
-    socketRef.current = socket;
+  const width = 1000;
+  const height = 520;
 
-    socket.on('connect', () => setConnected(true));
-    socket.on('disconnect', () => setConnected(false));
-    socket.on('pedal_mapping', (data) => {
-      setLiveData(data);
-      // Initialise both states on first message, then leave them user-controlled
-      if (data?.profile) {
-        setPending(prev => prev || data.profile);
-        setApplied(prev => prev || data.profile);
-      }
-    });
-
-    return () => socket.disconnect();
-  }, []);
-
-  const hasUnappliedChange = pending !== '' && pending !== applied;
-
-  const handleApply = async () => {
-    const profile = profiles.find(o => o.value === pending);
-    try {
-      await fetch(`${API_BASE}/pedal/apply`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(sessionStorage.getItem('token') ? { Authorization: `Bearer ${sessionStorage.getItem('token')}` } : {}),
-        },
-        body: JSON.stringify({ profile: pending, slot: profile?.slot ?? 0 }),
-      });
-    } catch (err) {
-      console.error('Failed to publish profile:', err);
-    }
-    setApplied(pending);
+  const margin = {
+    top: 40,
+    right: 40,
+    bottom: 70,
+    left: 75,
   };
 
-  const appliedLabel = profiles.find(o => o.value === applied)?.value ?? applied ?? '—';
+  const graphWidth = width - margin.left - margin.right;
+  const graphHeight = height - margin.top - margin.bottom;
+
+  const xToSvg = (x) =>
+    margin.left + (x / 100) * graphWidth;
+
+  const yToSvg = (y) =>
+    margin.top + ((100 - y) / 200) * graphHeight;
+
+  const svgToY = (svgY) => {
+    const y =
+      100 -
+      ((svgY - margin.top) / graphHeight) * 200;
+
+    return Math.round(clamp(y, -100, 100));
+  };
+
+  const handlePointDrag = (index, event) => {
+    event.preventDefault();
+
+    const svg = event.currentTarget.ownerSVGElement;
+    const rect = svg.getBoundingClientRect();
+
+    const scaleX = width / rect.width;
+    const scaleY = height / rect.height;
+
+    const svgY =
+      (event.clientY - rect.top) * scaleY;
+
+    const newValue = svgToY(svgY);
+
+    setMapping((current) => {
+      const next = [...current];
+      next[index] = newValue;
+      return next;
+    });
+  };
+
+  const handlePointPointerDown = (index, event) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    const handleMove = (moveEvent) => {
+      handlePointDrag(index, moveEvent);
+    };
+
+    const handleUp = () => {
+      event.currentTarget.releasePointerCapture?.(
+        event.pointerId
+      );
+
+      event.currentTarget.removeEventListener(
+        "pointermove",
+        handleMove
+      );
+
+      event.currentTarget.removeEventListener(
+        "pointerup",
+        handleUp
+      );
+    };
+
+    event.currentTarget.addEventListener(
+      "pointermove",
+      handleMove
+    );
+
+    event.currentTarget.addEventListener(
+      "pointerup",
+      handleUp
+    );
+  };
+
+  const handleValueChange = (index, value) => {
+    const numericValue = Number(value);
+
+    if (Number.isNaN(numericValue)) return;
+
+    setMapping((current) => {
+      const next = [...current];
+      next[index] = clamp(numericValue, -100, 100);
+      return next;
+    });
+  };
+
+  const handleReset = () => {
+    setMapping(DEFAULT_MAPPING);
+  };
+
+  const handleSave = () => {
+    console.log("Pedal mapping:", mapping);
+
+    // Replace this with your actual save/API/MQTT logic.
+    alert("Pedal mapping saved.");
+  };
+
+  const points = mapping.map((value, index) => ({
+    x: index * 5,
+    y: value,
+  }));
+
+  const polylinePoints = points
+    .map(({ x, y }) => `${xToSvg(x)},${yToSvg(y)}`)
+    .join(" ");
 
   return (
-    <div
-      style={{
-        fontFamily: "'Roboto Mono', monospace",
-        color: '#e5e7eb',
-        backgroundColor: '#0b1120',
-        minHeight: '100vh',
-        padding: '32px 24px',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: '#ffffff', margin: 0 }}>
-          Pedal Mapping
-        </h1>
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            padding: '2px 8px',
-            borderRadius: 99,
-            background: connected ? '#14532d' : '#3b1616',
-            color: connected ? '#4ade80' : '#f87171',
-            letterSpacing: '0.05em',
-          }}
-        >
-          {connected ? '● LIVE' : '○ OFFLINE'}
-        </span>
-      </div>
-      <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 32 }}>
-        Live pedal sensor data from the simulator.
-      </p>
+    <div className="pedal-mapping-shell">
+      <div className="pedal-mapping-header">
+        <div>
+          <h1 className="pedal-mapping-title">
+            PEDAL MAPPING
+          </h1>
 
-      <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-        {/* Dropdown + Apply */}
-        <div style={{ minWidth: 260, maxWidth: 360, flex: '1 1 260px' }}>
-          <label
-            htmlFor="pedal-mapping-select"
-            style={{ display: 'block', fontSize: 12, color: '#9ca3af', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}
-          >
-            Mapping profile
-          </label>
-          <select
-            id="pedal-mapping-select"
-            value={pending}
-            onChange={(e) => setPending(e.target.value)}
-            disabled={profilesLoading || profiles.length === 0}
-            style={{
-              width: '100%',
-              backgroundColor: '#101a2e',
-              color: pending ? '#e5e7eb' : '#6b7280',
-              border: `1px solid ${hasUnappliedChange ? '#f59e0b' : '#23314f'}`,
-              borderRadius: 12,
-              padding: '10px 14px',
-              fontSize: 14,
-              outline: 'none',
-              cursor: profilesLoading ? 'wait' : 'pointer',
-              appearance: 'none',
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='%239ca3af'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 14px center',
-            }}
-          >
-            <option value="" disabled>
-              {profilesLoading ? 'Loading from DBC…' : 'Select a mapping...'}
-            </option>
-            {profiles.map((opt) => (
-              <option key={opt.slot} value={opt.value}>
-                {opt.value}
-              </option>
-            ))}
-          </select>
-
-          {hasUnappliedChange && (
-            <p style={{ marginTop: 8, fontSize: 11, color: '#f59e0b' }}>
-              Unsaved change — press Apply to confirm.
-            </p>
-          )}
-
-          <button
-            onClick={handleApply}
-            disabled={!hasUnappliedChange}
-            style={{
-              marginTop: 14,
-              width: '100%',
-              padding: '10px 0',
-              borderRadius: 12,
-              border: 'none',
-              fontSize: 14,
-              fontWeight: 600,
-              fontFamily: "'Roboto Mono', monospace",
-              cursor: hasUnappliedChange ? 'pointer' : 'not-allowed',
-              background: hasUnappliedChange ? '#2563eb' : '#1e2d4a',
-              color: hasUnappliedChange ? '#ffffff' : '#4b5563',
-              transition: 'background 0.15s',
-            }}
-          >
-            Apply
-          </button>
+          <p className="pedal-mapping-subtitle">
+            Edit the output mapping for each pedal position.
+          </p>
         </div>
 
-        {/* Live data panel */}
-        <div
-          style={{
-            flex: '2 1 320px',
-            background: '#101a2e',
-            border: '1px solid #1e2d4a',
-            borderRadius: 16,
-            padding: '24px 28px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <span style={{ fontSize: 13, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Live readings
-            </span>
-            {liveData && (
-              <span style={{ fontSize: 11, color: '#4b5563' }}>
-                {new Date(liveData.timestamp).toLocaleTimeString()}
-              </span>
-            )}
-          </div>
+       
+      </div>
 
-          {liveData ? (
-            <>
-              {/* Applied profile badge */}
-              <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 12, color: '#9ca3af' }}>Applied</span>
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: '#60a5fa',
-                    background: '#1a2e4a',
-                    border: '1px solid #2563eb44',
-                    borderRadius: 8,
-                    padding: '3px 12px',
-                    letterSpacing: '0.03em',
-                  }}
-                >
-                  {appliedLabel}
-                </span>
-              </div>
+      <div className="pedal-mapping-card">
+        <div className="pedal-mapping-chart">
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            className="pedal-mapping-svg"
+          >
+            {/* Y-axis title */}
+            <text
+              x={margin.left}
+              y={20}
+              className="axis-title"
+            >
+              OUTPUT VALUE
+            </text>
 
-              <Bar label="Raw pedal position" value={liveData.raw_pct} color="#6366f1" />
-              <Bar label="Mapped output" value={liveData.mapped_pct} color="#22c55e" />
+            {/* Grid */}
+            {[100, 50, 0, -50, -100].map((value) => {
+              const y = yToSvg(value);
 
-              {/* Numeric details */}
-              <div
-                style={{
-                  marginTop: 20,
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: 12,
-                }}
-              >
-                {[
-                  { label: 'Raw ADC', value: liveData.raw },
-                  { label: 'Min raw', value: liveData.calibration?.min_raw },
-                  { label: 'Max raw', value: liveData.calibration?.max_raw },
-                  { label: 'DZ low', value: `${liveData.calibration?.deadzone_low} %` },
-                  { label: 'DZ high', value: `${liveData.calibration?.deadzone_high} %` },
-                  { label: 'Device', value: liveData.deviceId },
-                ].map(({ label, value }) => (
-                  <div
-                    key={label}
-                    style={{
-                      background: '#0d1526',
-                      border: '1px solid #1e2d4a',
-                      borderRadius: 10,
-                      padding: '10px 12px',
-                    }}
+              return (
+                <g key={value}>
+                  <line
+                    x1={margin.left}
+                    x2={width - margin.right}
+                    y1={y}
+                    y2={y}
+                    className={
+                      value === 0
+                        ? "zero-line"
+                        : "grid-line"
+                    }
+                  />
+
+                  <text
+                    x={margin.left - 15}
+                    y={y + 5}
+                    textAnchor="end"
+                    className="axis-label"
                   >
-                    <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#e5e7eb' }}>{value ?? '—'}</div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div style={{ color: '#4b5563', fontSize: 13, paddingTop: 8 }}>
-              {connected
-                ? 'Waiting for pedal data… start simulate_pedal.py'
-                : 'Not connected to server.'}
-            </div>
-          )}
+                    {value > 0 ? `+${value}` : value}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* X grid */}
+            {Array.from(
+              { length: POINT_COUNT },
+              (_, index) => index * 5
+            ).map((value) => {
+              const x = xToSvg(value);
+
+              return (
+                <g key={value}>
+                  <line
+                    x1={x}
+                    x2={x}
+                    y1={margin.top}
+                    y2={height - margin.bottom}
+                    className="grid-line"
+                  />
+
+                  <text
+                    x={x}
+                    y={height - margin.bottom + 25}
+                    textAnchor="middle"
+                    className="axis-label"
+                  >
+                    {value}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* X-axis title */}
+            <text
+              x={width / 2}
+              y={height - 15}
+              textAnchor="middle"
+              className="axis-title"
+            >
+              PEDAL POSITION (%)
+            </text>
+
+            {/* Mapping line */}
+            <polyline
+              points={polylinePoints}
+              fill="none"
+              className="mapping-line"
+            />
+
+            {/* Editable points */}
+            {points.map(({ x, y }, index) => (
+              <g key={x}>
+                <circle
+                  cx={xToSvg(x)}
+                  cy={yToSvg(y)}
+                  r={index === 10 ? 10 : 7}
+                  className={
+                    index === 10
+                      ? "mapping-point center-point"
+                      : "mapping-point"
+                  }
+                  onPointerDown={(event) =>
+                    handlePointPointerDown(
+                      index,
+                      event
+                    )
+                  }
+                />
+
+                {/* Value above/below selected point */}
+                <text
+                  x={xToSvg(x)}
+                  y={yToSvg(y) - 14}
+                  textAnchor="middle"
+                  className="point-value"
+                >
+                  {y > 0 ? `+${y}` : y}
+                </text>
+              </g>
+            ))}
+          </svg>
+        </div>
+
+        
+
+        {/* Actions */}
+        <div className="pedal-mapping-actions">
+          <button
+            type="button"
+            className="mapping-button save"
+            onClick={handleSave}
+          >
+            SAVE
+          </button>
+
+          <button
+            type="button"
+            className="mapping-button reset"
+            onClick={handleReset}
+          >
+            RESET
+          </button>
         </div>
       </div>
     </div>
   );
 }
-
-export default PedalMapping;

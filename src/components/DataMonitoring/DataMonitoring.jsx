@@ -55,34 +55,45 @@ function DataMonitoring() {
 
   // LOAD SIGNAL NAMES (DB)
   useEffect(() => {
-    if (isLiveMode) return;
-    let cancelled = false;
-    const loadSignalNamesFromDb = async () => {
-      try {
-        const data = await getSignalNames();
-        if (cancelled) return;
-        const signalNames = Array.isArray(data?.names)
-          ? data.names.map(String).filter(Boolean)
-          : [];
-        const merged = Array.from(
-          new Set([...signalNames, ...selectedSignalsRef.current])
-        ).sort();
-        setAvailableSignals(merged);
-        setHistoricalStatus(
-          merged.length
-            ? `Loaded ${merged.length} signal name${merged.length > 1 ? 's' : ''} from DB.`
-            : 'No signal names found in DB.'
-        );
-      } catch (error) {
-        if (cancelled) return;
-        setHistoricalStatus(`Failed to load signal names: ${error.message}`);
-      }
-    };
-    loadSignalNamesFromDb();
-    return () => {
-      cancelled = true;
-    };
-  }, [isLiveMode]);
+  if (isLiveMode) return;
+
+  let cancelled = false;
+
+  const loadSignalNamesFromDb = async () => {
+    try {
+      const data = await getSignalNames();
+
+      if (cancelled) return;
+
+      const signalNames = Array.isArray(data?.names)
+        ? data.names.map(String).filter(Boolean).sort()
+        : [];
+
+      setAvailableSignals(signalNames);
+
+      setHistoricalStatus(
+        signalNames.length
+          ? `Loaded ${signalNames.length} signal name${
+              signalNames.length > 1 ? 's' : ''
+            } from DB.`
+          : 'No signal names found in DB.'
+      );
+    } catch (error) {
+      if (cancelled) return;
+
+      setAvailableSignals([]);
+      setHistoricalStatus(
+        `Failed to load signal names: ${error.message}`
+      );
+    }
+  };
+
+  loadSignalNamesFromDb();
+
+  return () => {
+    cancelled = true;
+  };
+}, [isLiveMode]);
 
   // SOCKET SETUP
 
@@ -115,12 +126,12 @@ function DataMonitoring() {
         }
       }
 
-      if (newAvailableSignals.size > 0) {
-        setAvailableSignals((prev) => {
-          const merged = new Set([...prev, ...newAvailableSignals]);
-          return Array.from(merged).sort();
-        });
-      }
+    if (newAvailableSignals.size > 0 && liveModeRef.current) {
+      setAvailableSignals((prev) => {
+        const merged = new Set([...prev, ...newAvailableSignals]);
+        return Array.from(merged).sort();
+      });
+    }
     };
     socket.on('connect', () => setSocketStatus('Connected'));
     socket.on('telemetry', handler);
@@ -239,34 +250,31 @@ function DataMonitoring() {
   // HANDLERS
 
   const handleLiveModeToggle = useCallback(() => {
+  setIsLiveMode((prev) => {
+    const next = !prev;
 
-    setIsLiveMode((prev) => {
+    if (next) {
+      // Switching to LIVE mode:
+      // Do not keep signals that came from the database.
+      setAvailableSignals([]);
+      setSelectedSignals([]);
+      setStats({});
+      plotRef.current?.clear();
 
-      const next = !prev;
+      setHistoricalStatus(
+        'Live mode enabled. Waiting for telemetry signals...'
+      );
+    } else {
+      // Switching to HISTORY mode.
+      // Signal names will be loaded from the database by the effect.
+      setHistoricalStatus(
+        'Historical mode enabled. Loading selected timeframe...'
+      );
+    }
 
-      if (next) {
-
-        plotRef.current?.clear();
-
-        setStats({});
-
-        setHistoricalStatus('Live mode enabled. Historical plotting paused.');
-
-      } else {
-
-        setHistoricalStatus(
-
-          'Historical mode enabled. Loading selected timeframe...'
-
-        );
-
-      }
-
-      return next;
-
-    });
-
-  }, []);
+    return next;
+  });
+}, []);
 
 
   
