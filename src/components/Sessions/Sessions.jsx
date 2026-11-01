@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { CSVLink } from "react-csv";
 import "./Sessions.css";
-import { getAuthHeaders, handleUnauthorized } from '../../utils/api';
+import { getApiBase, getAuthHeaders, handleUnauthorized } from '../../utils/api';
 
-const API_URL = import.meta.env.VITE_API_BASE;
+const API_URL = getApiBase();
 
 const defaultColumns = [
   { key: "startTime", name: "Session start time" },

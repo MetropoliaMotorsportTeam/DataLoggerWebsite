@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBase, getAuthHeaders, handleUnauthorized } from '../../utils/api';
 
 function StatusIndicator({ label, status = 'ok' }) {
   const statusConfig = {
@@ -26,11 +27,10 @@ function Dashboard() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch('/api/status', {
-          headers: {
-            ...(sessionStorage.getItem('token') ? { Authorization: `Bearer ${sessionStorage.getItem('token')}` } : {}),
-          },
+        const response = await fetch(`${getApiBase()}/status`, {
+          headers: getAuthHeaders(),
         });
+        if (handleUnauthorized(response)) return;
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
@@ -45,7 +45,7 @@ function Dashboard() {
         // Set to error state if fetch fails
         setSystemStatuses([
           { name: 'Telemetry', status: 'error' },
-          { name: 'AWS', status: 'error' },
+          { name: 'Cosmos', status: 'error' },
           { name: 'Python Workers', status: 'error' },
         ]);
       }
