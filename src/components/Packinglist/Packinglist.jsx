@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./packinglist.css";
+import ListsPanel from "./ListsPanel";
+import CurrentListPanel from "./CurrentListPanel";
 
 // ---------------------------
 // CSV helpers (same logic as HTML)
@@ -11,10 +13,10 @@ function csvEscape(value) {
   return s;
 }
 
-const API_URL = import.meta.env.VITE_API_BASE || '/api';
+const API_URL = import.meta.env.VITE_API_BASE || "/api";
 
 function getAuthHeaders(extra = {}) {
-  const token = sessionStorage.getItem('token');
+  const token = sessionStorage.getItem("token");
   return {
     ...extra,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -215,32 +217,28 @@ function columnLabel(c) {
 }
 
 export default function Packinglist() {
-  const [db, setDb] = useState({
+  const [db, setDbState] = useState({
     structures: [],
     lists: [],
     items: [],
     nextId: 1,
   });
+  const dbRef = useRef(db);
+  const setDb = (updater) => {
+    const nextDb =
+      typeof updater === "function" ? updater(dbRef.current) : updater;
+    dbRef.current = nextDb;
+    setDbState(nextDb);
+  };
 
   const [loadingLists, setLoadingLists] = useState(false);
   const [loadingCurrentList, setLoadingCurrentList] = useState(false);
+  const listLoadRequestRef = useRef(0);
+  const listSaveQueuesRef = useRef(new Map());
 
   const [ui, setUi] = useState({
     currentListId: null,
-    listSearch: "",
-    activeSection: "ALL",
-    itemSearch: "",
-    onlyUnpacked: false,
-    onlyPacked: false,
-
     modalItem: false,
-    modalStructure: false,
-    modalImport: false,
-    editingItemId: null,
-    modalEditItem: false,
-    editItemId: null,
-
-    // ✅ NEW: one modal for both "New list" and "Rename"
     modalListName: false,
     listNameMode: "new", // "new" | "rename"
     listNameDraft: "",
@@ -258,14 +256,28 @@ export default function Packinglist() {
     formData.append("file", file);
     formData.append("key", list.key);
 
-    const res = await fetch(`${API_URL}/packinglist/upload`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: formData,
-    });
+    const previousSave = listSaveQueuesRef.current.get(list.key);
+    const saveRequest = (previousSave || Promise.resolve())
+      .catch(() => {})
+      .then(async () => {
+        const res = await fetch(`${API_URL}/packinglist/upload`, {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: formData,
+        });
 
-    if (!res.ok) {
-      throw new Error("Failed to save list to server");
+        if (!res.ok) {
+          throw new Error("Failed to save list to server");
+        }
+      });
+
+    listSaveQueuesRef.current.set(list.key, saveRequest);
+    try {
+      await saveRequest;
+    } finally {
+      if (listSaveQueuesRef.current.get(list.key) === saveRequest) {
+        listSaveQueuesRef.current.delete(list.key);
+      }
     }
   };
 
@@ -280,7 +292,6 @@ export default function Packinglist() {
   }, [db.lists, ui.currentListId]);
 
   // persist db
-
 
   useEffect(() => {
     setDb((prev) => {
@@ -317,25 +328,25 @@ export default function Packinglist() {
       const data = await res.json();
 
       const serverLists = await Promise.all(
-        (data.items || []).map(async (file, index) => {
-          let itemCount = 0;
+        (data.items || []).map(async (file) => {
+          let itemCount = null;
 
           try {
             const fileRes = await fetch(
-              `${API_URL}/packinglist/${encodeURIComponent(file.key)}`,
+              `${API_URL}/packinglist/file?key=${encodeURIComponent(file.key)}`,
               { headers: getAuthHeaders() },
             );
-            if (fileRes.ok) {
-              const csvText = await fileRes.text();
-              const parsed = parsePackingCsv(csvText, index + 1);
-              itemCount = parsed.items.length;
-            }
+            if (!fileRes.ok)
+              throw new Error("Failed to load list for item count");
+            const csvText = await fileRes.text();
+            const parsed = parsePackingCsv(csvText, file.key);
+            itemCount = parsed.items.length;
           } catch (err) {
             console.error("Failed counting items for", file.key, err);
           }
 
           return {
-            id: index + 1,
+            id: file.key,
             name: file.key.replace(/\.csv$/i, ""),
             created: file.lastModified || new Date().toISOString(),
             structureId: 1,
@@ -364,7 +375,6 @@ export default function Packinglist() {
                 ],
               },
             ],
-        items: [],
       }));
     } catch (err) {
       console.error(err);
@@ -375,6 +385,7 @@ export default function Packinglist() {
   };
 
   const fetchListContent = async (fileKey, listId) => {
+    const requestId = ++listLoadRequestRef.current;
     setLoadingCurrentList(true);
     try {
       const res = await fetch(
@@ -386,6 +397,8 @@ export default function Packinglist() {
       const csvText = await res.text();
       const parsed = parsePackingCsv(csvText, listId);
 
+      if (requestId !== listLoadRequestRef.current) return;
+
       setDb((prev) => ({
         ...prev,
         items: parsed.items,
@@ -396,10 +409,13 @@ export default function Packinglist() {
         ),
       }));
     } catch (err) {
+      if (requestId !== listLoadRequestRef.current) return;
       console.error(err);
       alert("Could not load selected list.");
     } finally {
-      setLoadingCurrentList(false);
+      if (requestId === listLoadRequestRef.current) {
+        setLoadingCurrentList(false);
+      }
     }
   };
 
@@ -408,86 +424,41 @@ export default function Packinglist() {
     [db.lists, ui.currentListId],
   );
 
-  const currentStruct = useMemo(() => {
-    if (!currentList) return null;
-    return db.structures.find((s) => s.id === currentList.structureId) || null;
-  }, [db.structures, currentList]);
-
-  const sectionCount = useMemo(() => {
-    if (!currentList) return 0;
-    const set = new Set(
-      db.items
-        .filter((it) => it.listId === currentList.id)
-        .map((it) => (it.section || "").trim())
-        .filter(Boolean),
-    );
-    return set.size;
-  }, [db.items, currentList]);
-
-  const filteredLists = useMemo(() => {
-    const q = ui.listSearch.toLowerCase().trim();
-    return [...db.lists]
-      .sort((a, b) => (a.created > b.created ? -1 : 1))
-      .filter((l) => !q || l.name.toLowerCase().includes(q));
-  }, [db.lists, ui.listSearch]);
-
-  const sections = useMemo(() => {
-    if (!currentList) return [];
-
-    const fromItems = db.items
-      .filter((it) => it.listId === currentList.id)
-      .map((it) => (it.section || "").trim())
-      .filter(Boolean);
-
-    return Array.from(new Set(fromItems));
-  }, [db.items, currentList]);
-  const columns = useMemo(
-    () =>
-      currentStruct?.columns?.length
-        ? currentStruct.columns
-        : ["packed", "item", "section", "quantity", "location", "notes"],
-    [currentStruct],
-  );
-
-  const filteredItems = useMemo(() => {
-    if (!currentList) return [];
-    const q = ui.itemSearch.toLowerCase().trim();
-
-    let items = db.items.filter((it) => it.listId === currentList.id);
-
-    if (ui.activeSection !== "ALL")
-      items = items.filter((it) => it.section === ui.activeSection);
-    if (ui.onlyPacked) items = items.filter((it) => it.packed);
-    if (ui.onlyUnpacked) items = items.filter((it) => !it.packed);
-
-    if (q) {
-      items = items.filter(
-        (it) =>
-          (it.item || "").toLowerCase().includes(q) ||
-          (it.notes || "").toLowerCase().includes(q) ||
-          (it.location || "").toLowerCase().includes(q) ||
-          (it.section || "").toLowerCase().includes(q),
-      );
+  useEffect(() => {
+    if (!currentList) {
+      listLoadRequestRef.current += 1;
+      setLoadingCurrentList(false);
+      return;
     }
 
-    items.sort((a, b) => a.id - b.id);
-
-    return items;
-  }, [
-    db.items,
-    currentList,
-    ui.activeSection,
-    ui.onlyPacked, 
-    ui.onlyUnpacked,
-    ui.itemSearch,
-  ]);
+    fetchListContent(currentList.key, currentList.id);
+  }, [currentList?.id, currentList?.key]);
 
   // -------- actions --------
   const createNewList = async (name) => {
     const cleanName = (name || "").trim() || defaultListName();
-    const fileKey = cleanName.toLowerCase().endsWith(".csv")
+    const requestedKey = cleanName.toLowerCase().endsWith(".csv")
       ? cleanName
       : `${cleanName}.csv`;
+    const sanitizedKey = requestedKey
+      .split(/[\\/]/)
+      .pop()
+      .replace(/[^a-z0-9._-]+/gi, "_")
+      .replace(/^[_\s.-]+/, "")
+      .replace(/[_\s.-]+$/, "");
+    const baseKey = sanitizedKey.toLowerCase().endsWith(".csv")
+      ? sanitizedKey
+      : `${sanitizedKey || "file"}.csv`;
+    const existingKeys = new Set(
+      dbRef.current.lists.map((list) => list.key.toLowerCase()),
+    );
+    const extensionIndex = baseKey.toLowerCase().lastIndexOf(".csv");
+    const baseName = baseKey.slice(0, extensionIndex);
+    let fileKey = baseKey;
+    let suffix = 2;
+    while (existingKeys.has(fileKey.toLowerCase())) {
+      fileKey = `${baseName}-${suffix++}.csv`;
+    }
 
     const csvText = buildPackingCsv([]);
 
@@ -509,12 +480,9 @@ export default function Packinglist() {
 
       setUi((p) => ({
         ...p,
+        currentListId: fileKey,
         modalListName: false,
         listNameDraft: "",
-        activeSection: "ALL",
-        itemSearch: "",
-        onlyPacked: false,
-        onlyUnpacked: false,
       }));
     } catch (err) {
       console.error(err);
@@ -542,7 +510,7 @@ export default function Packinglist() {
   };
 
   const togglePacked = async (itemId) => {
-    const nextItems = db.items.map((it) =>
+    const nextItems = dbRef.current.items.map((it) =>
       it.id === itemId ? { ...it, packed: !it.packed } : it,
     );
 
@@ -570,7 +538,7 @@ export default function Packinglist() {
     }
 
     const newItem = {
-      id: db.nextId,
+      id: dbRef.current.nextId,
       listId: currentList.id,
       packed: !!packed,
       item: item || "",
@@ -580,12 +548,20 @@ export default function Packinglist() {
       notes: notes || "",
     };
 
-    const nextItems = [...db.items, newItem];
+    const nextItems = [...dbRef.current.items, newItem];
 
     setDb((prev) => ({
       ...prev,
       items: nextItems,
       nextId: prev.nextId + 1,
+      lists: prev.lists.map((l) =>
+        l.id === currentList.id
+          ? {
+              ...l,
+              itemCount: nextItems.filter((it) => it.listId === l.id).length,
+            }
+          : l,
+      ),
     }));
 
     try {
@@ -598,7 +574,7 @@ export default function Packinglist() {
   };
 
   const updateItem = async (itemId, patch) => {
-    const nextItems = db.items.map((it) =>
+    const nextItems = dbRef.current.items.map((it) =>
       it.id === itemId ? { ...it, ...patch } : it,
     );
 
@@ -612,9 +588,9 @@ export default function Packinglist() {
     }
   };
 
-  const markAllShownPacked = async () => {
-    const ids = new Set(filteredItems.map((x) => x.id));
-    const nextItems = db.items.map((it) =>
+  const markAllShownPacked = async (shownItems) => {
+    const ids = new Set(shownItems.map((x) => x.id));
+    const nextItems = dbRef.current.items.map((it) =>
       ids.has(it.id) ? { ...it, packed: true } : it,
     );
 
@@ -628,18 +604,32 @@ export default function Packinglist() {
     }
   };
 
-  const deletePackedShown = async () => {
+  const deletePackedShown = async (shownItems) => {
     if (!confirm("Delete all packed items currently shown?")) return;
 
-    const ids = new Set(filteredItems.filter((x) => x.packed).map((x) => x.id));
+    const ids = new Set(shownItems.filter((x) => x.packed).map((x) => x.id));
     if (ids.size === 0) return;
 
-    const nextItems = db.items.filter((it) => !ids.has(it.id));
+    const nextItems = dbRef.current.items.filter((it) => !ids.has(it.id));
 
     try {
       await saveListToServer(currentList, nextItems);
       // Update state only after server confirms the save
-      setDb((p) => ({ ...p, items: p.items.filter((it) => !ids.has(it.id)) }));
+      setDb((p) => {
+        const items = p.items.filter((it) => !ids.has(it.id));
+        return {
+          ...p,
+          items,
+          lists: p.lists.map((l) =>
+            l.id === currentList.id
+              ? {
+                  ...l,
+                  itemCount: items.filter((it) => it.listId === l.id).length,
+                }
+              : l,
+          ),
+        };
+      });
     } catch (err) {
       console.error(err);
       alert("Failed to delete items. Please try again.");
@@ -652,23 +642,37 @@ export default function Packinglist() {
 
     try {
       await saveListToServer(currentList, []);
-      setDb((p) => ({ ...p, items: p.items.filter((it) => it.listId !== currentList.id) }));
+      setDb((p) => ({
+        ...p,
+        items: p.items.filter((it) => it.listId !== currentList.id),
+        lists: p.lists.map((l) =>
+          l.id === currentList.id ? { ...l, itemCount: 0 } : l,
+        ),
+      }));
     } catch (err) {
       console.error(err);
-      alert('Failed to delete all items. Please try again.');
+      alert("Failed to delete all items. Please try again.");
     }
   };
 
   const deleteList = async () => {
     if (!currentList) return;
-    if (!confirm(`Permanently delete the list "${currentList.name}"? This cannot be undone.`)) return;
+    if (
+      !confirm(
+        `Permanently delete the list "${currentList.name}"? This cannot be undone.`,
+      )
+    )
+      return;
 
     try {
-      const res = await fetch(`${API_URL}/packinglist?key=${encodeURIComponent(currentList.key)}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error('Failed to delete list');
+      const res = await fetch(
+        `${API_URL}/packinglist?key=${encodeURIComponent(currentList.key)}`,
+        {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        },
+      );
+      if (!res.ok) throw new Error("Failed to delete list");
 
       setDb((p) => ({
         ...p,
@@ -678,7 +682,7 @@ export default function Packinglist() {
       setUi((p) => ({ ...p, currentListId: null }));
     } catch (err) {
       console.error(err);
-      alert('Failed to delete the list. Please try again.');
+      alert("Failed to delete the list. Please try again.");
     }
   };
 
@@ -730,17 +734,37 @@ export default function Packinglist() {
 
   // -------- UI --------
   return (
-    <div style={{ fontFamily: "'Roboto Mono', monospace", color: 'var(--text-primary)', backgroundColor: 'var(--background-base)' }}>
+    <div
+      style={{
+        fontFamily: "'Roboto Mono', monospace",
+        color: "var(--text-primary)",
+        backgroundColor: "var(--background-base)",
+      }}
+    >
       <header>
-        <div className="topbar" style={{ backgroundColor: 'var(--surface-layer)', borderBottom: '1px solid var(--primary-accent)', paddingTop: '14px', paddingBottom: '14px' }}>
+        <div
+          className="topbar"
+          style={{
+            backgroundColor: "var(--surface-layer)",
+            borderBottom: "1px solid var(--primary-accent)",
+            paddingTop: "14px",
+            paddingBottom: "14px",
+          }}
+        >
           <div className="brand">
-            <span className="dot" style={{ backgroundColor: 'var(--primary-accent)' }} />
+            <span
+              className="dot"
+              style={{ backgroundColor: "var(--primary-accent)" }}
+            />
             <span>Packing List</span>
           </div>
           <div className="actions">
             <button
               className="primary"
-              style={{ backgroundColor: 'var(--primary-accent)', color: 'var(--background-base)' }}
+              style={{
+                backgroundColor: "var(--primary-accent)",
+                color: "var(--background-base)",
+              }}
               onClick={() =>
                 setUi((p) => ({
                   ...p,
@@ -753,21 +777,39 @@ export default function Packinglist() {
               + New Packing List
             </button>
             <button
-              style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
-              onClick={() => setUi((p) => ({ ...p, modalItem: true, editingItemId: null }))}
+              style={{
+                backgroundColor: "var(--surface-layer)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--primary-accent)",
+              }}
+              onClick={() => setUi((p) => ({ ...p, modalItem: true }))}
             >
               + Add Item
             </button>
             <button
-              style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
+              style={{
+                backgroundColor: "var(--surface-layer)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--primary-accent)",
+              }}
               onClick={() => {
-                if (!currentList) { alert("No list selected!"); return; }
+                if (!currentList) {
+                  alert("No list selected!");
+                  return;
+                }
                 document.getElementById("csvFileInput").click();
               }}
             >
               Upload CSV
             </button>
-            <button style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }} onClick={exportCsv}>
+            <button
+              style={{
+                backgroundColor: "var(--surface-layer)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--primary-accent)",
+              }}
+              onClick={exportCsv}
+            >
               Export CSV
             </button>
           </div>
@@ -789,600 +831,35 @@ export default function Packinglist() {
 
       <main>
         <div className="grid">
-          {/* Left */}
-          <section className="panel" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
-            <div className="head" style={{ borderBottom: '1px solid var(--primary-accent)' }}>
-              <h2>Lists</h2>
-              <span className="muted" style={{ color: 'var(--text-secondary)' }}>{db.lists.length} total</span>
-            </div>
-
-            <div className="body stack">
-              <input
-                placeholder="Search lists..."
-                value={ui.listSearch}
-                onChange={(e) =>
-                  setUi((p) => ({ ...p, listSearch: e.target.value }))
-                }
-                style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
-              />
-
-              <div className="list">
-                {filteredLists.map((l) => {
-                  const itemCount = l.itemCount ?? 0;
-                  const active = l.id === ui.currentListId;
-
-                  return (
-                    <div
-                      key={l.id}
-                      className={"listItem" + (active ? " active" : "")}
-                      style={{
-                        backgroundColor: active ? 'var(--primary-accent)' : 'transparent',
-                        color: active ? 'var(--background-base)' : 'var(--text-primary)',
-                      }}
-                      onClick={() => {
-                        setUi((p) => ({
-                          ...p,
-                          currentListId: l.id,
-                          activeSection: "ALL",
-                          itemSearch: "",
-                          onlyUnpacked: false,
-                          onlyPacked: false,
-                        }));
-
-                        fetchListContent(l.key, l.id);
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontWeight: 700,
-                            fontSize: 13,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
-                          {l.name}
-                        </div>
-                        <div className="mini" style={{ color: active ? 'var(--background-base)' : 'var(--text-secondary)' }}>
-                          {new Date(l.created).toLocaleString()}
-                        </div>
-                      </div>
-                      <div className="badge" style={{ backgroundColor: active ? 'var(--background-base)' : 'var(--surface-layer)', color: active ? 'var(--primary-accent)' : 'var(--text-primary)' }}>{itemCount} items</div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="hint" style={{ color: 'var(--text-secondary)' }}>
-                New list defaults to <b>packing_list_YYYY-MM-DD</b> and copies
-                the last list’s structure.
-              </div>
-            </div>
-          </section>
-
-          {/* Right */}
-          <section className="panel" style={{ backgroundColor: 'var(--surface-layer)', border: '1px solid var(--primary-accent)' }}>
-            <div className="head" style={{ borderBottom: '1px solid var(--primary-accent)' }}>
-              <h2>Current List</h2>
-              <span className="muted" style={{ color: 'var(--text-secondary)' }}>
-                {currentList
-                  ? `Created: ${new Date(currentList.created).toLocaleString()}`
-                  : "No list selected"}
-              </span>
-            </div>
-
-            <div className="body rightTop">
-              <div className="split2">
-                <div className="stack">
-                  <label className="muted" style={{ color: 'var(--text-secondary)' }}>Name</label>
-
-                  {/* ✅ Name + Rename button (no inline input) */}
-                  <div
-                    className="row"
-                    style={{ gap: 10, justifyContent: "flex-start" }}
-                  >
-                    <span
-                      className="badge"
-                      style={{
-                        maxWidth: 260,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        backgroundColor: 'var(--background-base)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--primary-accent)'
-                      }}
-                    >
-                      {currentList?.name || "—"}
-                    </span>
-                    <button
-                      disabled={!currentList}
-                      style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
-                      onClick={() => {
-                        if (!currentList) return;
-                        setUi((p) => ({
-                          ...p,
-                          modalListName: true,
-                          listNameMode: "rename",
-                          listNameDraft: currentList.name || "",
-                        }));
-                      }}
-                    >
-                      Rename
-                    </button>
-                  </div>
-                </div>
-
-                <div className="stack">
-                  <label className="muted" style={{ color: 'var(--text-secondary)' }}>Structure</label>
-                  <div className="row">
-                    <span className="badge" style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}>
-                      {currentList
-                        ? `${sectionCount} sections • 7 columns`
-                        : "—"}
-                    </span>
-                    <button
-                      style={{ backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
-                      onClick={() =>
-                        setUi((p) => ({
-                          ...p,
-                          modalEditItem: true,
-                          editItemId: null,
-                        }))
-                      }
-                    >
-                      Edit items
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="split2">
-                <div className="stack">
-                  <label className="muted" style={{ color: 'var(--text-secondary)' }}>Filter by section</label>
-                  <div className="chips">
-                    {["ALL", ...sections].map((sec) => (
-                      <div
-                        key={sec}
-                        className={
-                          "chip" + (ui.activeSection === sec ? " active" : "")
-                        }
-                        style={{
-                          backgroundColor: ui.activeSection === sec ? 'var(--primary-accent)' : 'var(--background-base)',
-                          color: ui.activeSection === sec ? 'var(--background-base)' : 'var(--text-primary)',
-                          border: `1px solid ${ui.activeSection === sec ? 'var(--primary-accent)' : 'var(--text-secondary)'}`
-                        }}
-                        onClick={() =>
-                          setUi((p) => ({ ...p, activeSection: sec }))
-                        }
-                      >
-                        {sec === "ALL" ? "All sections" : sec}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="stack">
-                  <label className="muted" style={{ color: 'var(--text-secondary)' }}>Search items</label>
-                  <input
-                    placeholder="Search item..."
-                    value={ui.itemSearch}
-                    onChange={(e) =>
-                      setUi((p) => ({ ...p, itemSearch: e.target.value }))
-                    }
-                    style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
-                  />
-                </div>
-              </div>
-
-              <div
-                className="row"
-                style={{ gap: 16, justifyContent: "flex-start" }}
-              >
-                <label className="row" style={{ gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    style={{ width: "auto", transform: "translateY(1px)" }}
-                    checked={ui.onlyPacked}
-                    onChange={(e) =>
-                      setUi((p) => ({
-                        ...p,
-                        onlyPacked: e.target.checked,
-                        onlyUnpacked: e.target.checked ? false : p.onlyUnpacked,
-                      }))
-                    }
-                  />
-                  <span className="muted" style={{ color: 'var(--text-secondary)' }}>Show only packed</span>
-                </label>
-
-                <label className="row" style={{ gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    style={{ width: "auto", transform: "translateY(1px)" }}
-                    checked={ui.onlyUnpacked}
-                    onChange={(e) =>
-                      setUi((p) => ({
-                        ...p,
-                        onlyUnpacked: e.target.checked,
-                        onlyPacked: e.target.checked ? false : p.onlyPacked,
-                      }))
-                    }
-                  />
-                  <span className="muted" style={{ color: 'var(--text-secondary)' }}>Show only unpacked</span>
-                </label>
-
-                <div style={{ flex: 2 }} />
-                <span className="badge" style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}>{filteredItems.length} shown</span>
-              </div>
-
-              <div className="tableWrap">
-                <table style={{ borderCollapse: 'separate', borderSpacing: '0 10px' }}>
-                  <thead>
-                    <tr>
-                      {columns.map((c) => (
-                        <th key={c} style={{ color: 'var(--text-secondary)' }}>{columnLabel(c)}</th>
-                      ))}
-                      <th style={{ color: 'var(--text-secondary)' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredItems.map((it) => (
-                      <tr key={it.id} style={{ backgroundColor: 'var(--background-base)' }}>
-                        {columns.map((c) => {
-                          if (c === "packed") {
-                            return (
-                              <td key={c}>
-                                {it.packed ? (
-                                  <span className="k ok" style={{ color: 'var(--success-positive)' }}>☑ Packed</span>
-                                ) : (
-                                  <span className="k no" style={{ color: 'var(--warning-attention)' }}>☐ Not packed</span>
-                                )}
-                              </td>
-                            );
-                          }
-                          if (c === "section")
-                            return (
-                              <td key={c}>
-                                <span className="badge" style={{ backgroundColor: 'var(--accent-highlight)', color: 'var(--background-base)' }}>{it.section}</span>
-                              </td>
-                            );
-                          if (c === "item")
-                            return (
-                              <td key={c}>
-                                <div style={{ fontWeight: 700 }}>{it.item}</div>
-                              </td>
-                            );
-                          return <td key={c}>{String(it[c] ?? "")}</td>;
-                        })}
-                        <td>
-                          <div
-                            className="row"
-                            style={{ gap: 8, justifyContent: "flex-start" }}
-                          >
-                            <button
-                              className="ghost"
-                              style={{ color: 'var(--primary-accent)' }}
-                              onClick={() => togglePacked(it.id)}
-                            >
-                              {it.packed ? "Unpack" : "Pack"}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {!filteredItems.length && (
-                      <tr>
-                        <td colSpan={columns.length + 1} className="muted">
-                          No items match your filters.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="row">
-                <button className="good" onClick={markAllShownPacked}>
-                  Mark all shown as packed
-                </button>
-                <button
-                  className="bad"
-                  onClick={deletePackedShown}
-                  disabled={loadingCurrentList || !filteredItems.some((x) => x.packed)}
-                  style={{ opacity: (!loadingCurrentList && filteredItems.some((x) => x.packed)) ? 1 : 0.4, cursor: (!loadingCurrentList && filteredItems.some((x) => x.packed)) ? 'pointer' : 'not-allowed' }}
-                >
-                  Delete packed (shown)
-                </button>
-                <button
-                  className="bad"
-                  onClick={deleteAllItems}
-                  disabled={loadingCurrentList || !currentList}
-                  style={{ opacity: (currentList && !loadingCurrentList) ? 1 : 0.4, cursor: (currentList && !loadingCurrentList) ? 'pointer' : 'not-allowed' }}
-                >
-                  Delete all
-                </button>
-                <button
-                  className="bad"
-                  onClick={deleteList}
-                  disabled={!currentList}
-                  style={{ opacity: currentList ? 1 : 0.4, cursor: currentList ? 'pointer' : 'not-allowed', backgroundColor: '#7f1d1d' }}
-                >
-                  Delete list
-                </button>
-              </div>
-            </div>
-          </section>
+          <ListsPanel
+            db={db}
+            currentList={currentList}
+            ui={ui}
+            setUi={setUi}
+            loadingLists={loadingLists}
+            createNewList={createNewList}
+            renameCurrentList={renameCurrentList}
+          />
+          <CurrentListPanel
+            items={db.items}
+            structure={db.structures.find(
+              (structure) => structure.id === currentList?.structureId,
+            )}
+            currentList={currentList}
+            setUi={setUi}
+            ui={ui}
+            columnLabel={columnLabel}
+            togglePacked={togglePacked}
+            updateItem={updateItem}
+            addItem={addItem}
+            loadingCurrentList={loadingCurrentList}
+            markAllShownPacked={markAllShownPacked}
+            deletePackedShown={deletePackedShown}
+            deleteAllItems={deleteAllItems}
+            deleteList={deleteList}
+          />
         </div>
       </main>
-
-      {/* ✅ NEW/RENAME LIST MODAL */}
-      {ui.modalListName && (
-        <div
-          className={`modalBackdrop ${ui.modalListName ? "open" : ""}`}
-          onClick={() => setUi((p) => ({ ...p, modalListName: false }))}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="head">
-              <h3>
-                {ui.listNameMode === "new"
-                  ? "New Packing List"
-                  : "Rename Packing List"}
-              </h3>
-              <button
-                className="ghost closeX"
-                onClick={() => setUi((p) => ({ ...p, modalListName: false }))}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="body stack">
-              <label className="muted">Name</label>
-              <input
-                autoFocus
-                value={ui.listNameDraft}
-                onChange={(e) =>
-                  setUi((p) => ({ ...p, listNameDraft: e.target.value }))
-                }
-                placeholder="Enter list name..."
-              />
-            </div>
-
-            <div className="foot">
-              <button
-                className="ghost"
-                onClick={() => setUi((p) => ({ ...p, modalListName: false }))}
-              >
-                Cancel
-              </button>
-
-              <button
-                className="primary"
-                onClick={() => {
-                  if (ui.listNameMode === "new") {
-                    createNewList(ui.listNameDraft, true);
-                  } else {
-                    renameCurrentList(ui.listNameDraft);
-                  }
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* edit item */}
-      {ui.modalEditItem && (
-        <div
-          className={`modalBackdrop ${ui.modalEditItem ? "open" : ""}`}
-          onClick={() =>
-            setUi((p) => ({ ...p, modalEditItem: false, editItemId: null }))
-          }
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="head">
-              <h3>Edit Item</h3>
-              <button
-                className="ghost closeX"
-                onClick={() =>
-                  setUi((p) => ({
-                    ...p,
-                    modalEditItem: false,
-                    editItemId: null,
-                  }))
-                }
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="body stack">
-              {!currentList ? (
-                <div className="muted">No list selected.</div>
-              ) : (
-                <>
-                  <label className="muted">Choose item</label>
-                  <select
-                    value={ui.editItemId ?? ""}
-                    onChange={(e) =>
-                      setUi((p) => ({
-                        ...p,
-                        editItemId: e.target.value
-                          ? Number(e.target.value)
-                          : null,
-                      }))
-                    }
-                  >
-                    <option value="">-- Select an item --</option>
-                    {db.items
-                      .filter((it) => it.listId === currentList.id)
-                      .slice()
-                      .sort((a, b) =>
-                        (a.item || "").localeCompare(b.item || ""),
-                      )
-                      .map((it) => (
-                        <option key={it.id} value={it.id}>
-                          {it.item || "(Unnamed item)"}{" "}
-                          {it.section ? `— ${it.section}` : ""}
-                        </option>
-                      ))}
-                  </select>
-
-                  {ui.editItemId &&
-                    (() => {
-                      const it = db.items.find((x) => x.id === ui.editItemId);
-                      if (!it) return null;
-
-                      return (
-                        <>
-                          <div style={{ height: 8 }} />
-
-                          <label className="row packedRow">
-                            <span>Packed?</span>
-                            <input
-                              type="checkbox"
-                              checked={!!it.packed}
-                              onChange={(e) =>
-                                updateItem(it.id, { packed: e.target.checked })
-                              }
-                            />
-                          </label>
-
-                          <input
-                            value={it.item}
-                            onChange={(e) =>
-                              updateItem(it.id, { item: e.target.value })
-                            }
-                            placeholder="Item"
-                          />
-                          <input
-                            value={it.section}
-                            onChange={(e) =>
-                              updateItem(it.id, { section: e.target.value })
-                            }
-                            placeholder="Section"
-                          />
-                          <input
-                            type="number"
-                            value={it.quantity}
-                            onChange={(e) =>
-                              updateItem(it.id, {
-                                quantity: Number(e.target.value) || 0,
-                              })
-                            }
-                            placeholder="Quantity"
-                          />
-                          <input
-                            value={it.location}
-                            onChange={(e) =>
-                              updateItem(it.id, { location: e.target.value })
-                            }
-                            placeholder="Location"
-                          />
-                          <input
-                            value={it.notes}
-                            onChange={(e) =>
-                              updateItem(it.id, { notes: e.target.value })
-                            }
-                            placeholder="Notes"
-                          />
-                        </>
-                      );
-                    })()}
-                </>
-              )}
-            </div>
-
-            <div className="foot">
-              <button
-                className="ghost"
-                onClick={() =>
-                  setUi((p) => ({
-                    ...p,
-                    modalEditItem: false,
-                    editItemId: null,
-                  }))
-                }
-              >
-                Cancel
-              </button>
-              <button
-                className="primary"
-                onClick={() => {
-                  if (ui.listNameMode === "new") {
-                    createNewList(ui.listNameDraft);
-                  } else {
-                    renameCurrentList(ui.listNameDraft);
-                  }
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ITEM MODAL (your existing one) */}
-      {ui.modalItem && (
-        <div
-          className={`modalBackdrop ${ui.modalItem ? "open" : ""}`}
-          onClick={() => setUi((p) => ({ ...p, modalItem: false }))}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="head">
-              <h3>Add Item</h3>
-              <button
-                className="ghost closeX"
-                onClick={() => setUi((p) => ({ ...p, modalItem: false }))}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="body stack">
-              <label className="row packedRow">
-                <span>Packed?</span>
-                <input type="checkbox" id="newItemPacked" />
-              </label>
-
-              <input placeholder="Item" id="newItemName" />
-              <input placeholder="Section" id="newItemSection" />
-              <input placeholder="Quantity" type="number" id="newItemQty" />
-              <input placeholder="Location" id="newItemLocation" />
-              <input placeholder="Notes" id="newItemNotes" />
-            </div>
-
-            <div className="foot">
-              <button
-                className="ghost"
-                onClick={() => setUi((p) => ({ ...p, modalItem: false }))}
-              >
-                Cancel
-              </button>
-
-              <button
-                className="primary"
-                onClick={() => {
-                  addItem({
-                    packed: document.getElementById("newItemPacked").checked,
-                    item: document.getElementById("newItemName").value,
-                    section: document.getElementById("newItemSection").value,
-                    quantity: document.getElementById("newItemQty").value,
-                    location: document.getElementById("newItemLocation").value,
-                    notes: document.getElementById("newItemNotes").value,
-                  });
-                }}
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
