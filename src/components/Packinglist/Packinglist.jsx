@@ -232,6 +232,9 @@ export default function Packinglist() {
   };
 
   const [loadingLists, setLoadingLists] = useState(false);
+  // true when the current list has local changes that are not on the server yet
+  const [dirty, setDirty] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [loadingCurrentList, setLoadingCurrentList] = useState(false);
   const listLoadRequestRef = useRef(0);
   const listSaveQueuesRef = useRef(new Map());
@@ -399,6 +402,7 @@ export default function Packinglist() {
 
       if (requestId !== listLoadRequestRef.current) return;
 
+      setDirty(false);
       setDb((prev) => ({
         ...prev,
         items: parsed.items,
@@ -436,6 +440,7 @@ export default function Packinglist() {
 
   // -------- actions --------
   const createNewList = async (name) => {
+    if (!confirmDiscardChanges()) return;
     const cleanName = (name || "").trim() || defaultListName();
     const requestedKey = cleanName.toLowerCase().endsWith(".csv")
       ? cleanName
@@ -509,29 +514,24 @@ export default function Packinglist() {
     }));
   };
 
-  const togglePacked = async (itemId) => {
+  const setItemCount = (lists, listId, items) =>
+    lists.map((l) =>
+      l.id === listId
+        ? { ...l, itemCount: items.filter((it) => it.listId === listId).length }
+        : l,
+    );
+
+  // The edit actions below only change the frontend state. Nothing is sent to
+  // the backend until the user presses "Submit" (see submitChanges).
+  const togglePacked = (itemId) => {
     const nextItems = dbRef.current.items.map((it) =>
       it.id === itemId ? { ...it, packed: !it.packed } : it,
     );
-
     setDb((p) => ({ ...p, items: nextItems }));
-
-    try {
-      await saveListToServer(currentList, nextItems);
-    } catch (err) {
-      console.error(err);
-      alert("Changed locally, but failed to save to server.");
-    }
+    setDirty(true);
   };
 
-  const addItem = async ({
-    packed,
-    item,
-    section,
-    quantity,
-    location,
-    notes,
-  }) => {
+  const addItem = ({ packed, item, section, quantity, location, notes }) => {
     if (!currentList) {
       alert("No list selected!");
       return;
@@ -554,106 +554,80 @@ export default function Packinglist() {
       ...prev,
       items: nextItems,
       nextId: prev.nextId + 1,
-      lists: prev.lists.map((l) =>
-        l.id === currentList.id
-          ? {
-              ...l,
-              itemCount: nextItems.filter((it) => it.listId === l.id).length,
-            }
-          : l,
-      ),
+      lists: setItemCount(prev.lists, currentList.id, nextItems),
     }));
-
-    try {
-      await saveListToServer(currentList, nextItems);
-      setUi((p) => ({ ...p, modalItem: false }));
-    } catch (err) {
-      console.error(err);
-      alert("Item added locally, but failed to save to server.");
-    }
+    setDirty(true);
+    setUi((p) => ({ ...p, modalItem: false }));
   };
 
-  const updateItem = async (itemId, patch) => {
+  const updateItem = (itemId, patch) => {
     const nextItems = dbRef.current.items.map((it) =>
       it.id === itemId ? { ...it, ...patch } : it,
     );
-
     setDb((p) => ({ ...p, items: nextItems }));
-
-    try {
-      await saveListToServer(currentList, nextItems);
-    } catch (err) {
-      console.error(err);
-      alert("Item updated locally, but failed to save to server.");
-    }
+    setDirty(true);
   };
 
-  const markAllShownPacked = async (shownItems) => {
+  const markAllShownPacked = (shownItems) => {
     const ids = new Set(shownItems.map((x) => x.id));
     const nextItems = dbRef.current.items.map((it) =>
       ids.has(it.id) ? { ...it, packed: true } : it,
     );
-
     setDb((p) => ({ ...p, items: nextItems }));
-
-    try {
-      await saveListToServer(currentList, nextItems);
-    } catch (err) {
-      console.error(err);
-      alert("Updated locally, but failed to save to server.");
-    }
+    setDirty(true);
   };
 
-  const deletePackedShown = async (shownItems) => {
+  const deletePackedShown = (shownItems) => {
     if (!confirm("Delete all packed items currently shown?")) return;
 
     const ids = new Set(shownItems.filter((x) => x.packed).map((x) => x.id));
     if (ids.size === 0) return;
 
     const nextItems = dbRef.current.items.filter((it) => !ids.has(it.id));
-
-    try {
-      await saveListToServer(currentList, nextItems);
-      // Update state only after server confirms the save
-      setDb((p) => {
-        const items = p.items.filter((it) => !ids.has(it.id));
-        return {
-          ...p,
-          items,
-          lists: p.lists.map((l) =>
-            l.id === currentList.id
-              ? {
-                  ...l,
-                  itemCount: items.filter((it) => it.listId === l.id).length,
-                }
-              : l,
-          ),
-        };
-      });
-    } catch (err) {
-      console.error(err);
-      alert("Failed to delete items. Please try again.");
-    }
+    setDb((p) => ({
+      ...p,
+      items: nextItems,
+      lists: setItemCount(p.lists, currentList.id, nextItems),
+    }));
+    setDirty(true);
   };
 
-  const deleteAllItems = async () => {
+  const deleteAllItems = () => {
     if (!currentList) return;
     if (!confirm(`Delete all items in "${currentList.name}"?`)) return;
 
+    const nextItems = dbRef.current.items.filter(
+      (it) => it.listId !== currentList.id,
+    );
+    setDb((p) => ({
+      ...p,
+      items: nextItems,
+      lists: setItemCount(p.lists, currentList.id, nextItems),
+    }));
+    setDirty(true);
+  };
+
+  // Sends the current list to the backend.
+  const submitChanges = async () => {
+    if (!currentList || !dirty || submitting) return;
+    setSubmitting(true);
     try {
-      await saveListToServer(currentList, []);
-      setDb((p) => ({
-        ...p,
-        items: p.items.filter((it) => it.listId !== currentList.id),
-        lists: p.lists.map((l) =>
-          l.id === currentList.id ? { ...l, itemCount: 0 } : l,
-        ),
-      }));
+      const itemsToSave = dbRef.current.items.filter(
+        (it) => it.listId === currentList.id,
+      );
+      await saveListToServer(currentList, itemsToSave);
+      setDirty(false);
     } catch (err) {
       console.error(err);
-      alert("Failed to delete all items. Please try again.");
+      alert("Failed to save changes to the server. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  // Ask before leaving a list that has unsaved changes.
+  const confirmDiscardChanges = () =>
+    !dirty || confirm("You have unsaved changes. Discard them and continue?");
 
   const deleteList = async () => {
     if (!currentList) return;
@@ -679,6 +653,7 @@ export default function Packinglist() {
         lists: p.lists.filter((l) => l.id !== currentList.id),
         items: p.items.filter((it) => it.listId !== currentList.id),
       }));
+      setDirty(false);
       setUi((p) => ({ ...p, currentListId: null }));
     } catch (err) {
       console.error(err);
@@ -731,6 +706,17 @@ export default function Packinglist() {
   useEffect(() => {
     fetchAvailableLists();
   }, []);
+
+  // warn before closing/reloading the tab with unsaved changes
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   // -------- UI --------
   return (
@@ -839,6 +825,7 @@ export default function Packinglist() {
             loadingLists={loadingLists}
             createNewList={createNewList}
             renameCurrentList={renameCurrentList}
+            confirmDiscardChanges={confirmDiscardChanges}
           />
           <CurrentListPanel
             items={db.items}
@@ -857,6 +844,9 @@ export default function Packinglist() {
             deletePackedShown={deletePackedShown}
             deleteAllItems={deleteAllItems}
             deleteList={deleteList}
+            dirty={dirty}
+            submitting={submitting}
+            submitChanges={submitChanges}
           />
         </div>
       </main>

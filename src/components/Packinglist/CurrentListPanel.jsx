@@ -13,6 +13,9 @@ export default function CurrentListPanel({
   loadingCurrentList,
   markAllShownPacked,
   deletePackedShown,
+  dirty,
+  submitting,
+  submitChanges,
   deleteAllItems,
   deleteList,
 }) {
@@ -305,6 +308,24 @@ export default function CurrentListPanel({
             </label>
 
             <div style={{ flex: 2 }} />
+            <button
+              className="primary"
+              style={{
+                backgroundColor: "var(--warning-attention)",
+                color: "var(--background-base)",
+                opacity: !dirty || submitting ? 0.5 : 1,
+                cursor: !dirty || submitting ? "not-allowed" : "pointer",
+              }}
+              disabled={!currentList || !dirty || submitting}
+              onClick={submitChanges}
+              title={dirty ? "Save changes to the system" : "No unsaved changes"}
+            >
+              {submitting
+                ? "Saving..."
+                : dirty
+                  ? "Save to system *"
+                  : "Save to system"}
+            </button>
             <span
               className="badge"
               style={{

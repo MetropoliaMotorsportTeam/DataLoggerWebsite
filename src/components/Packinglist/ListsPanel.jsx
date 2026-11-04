@@ -7,6 +7,7 @@ export default function ListsPanel({
   loadingLists,
   createNewList,
   renameCurrentList,
+  confirmDiscardChanges,
 }) {
   const [search, setSearch] = useState("");
   const filteredLists = useMemo(() => {
@@ -65,12 +66,14 @@ export default function ListsPanel({
                       ? "var(--background-base)"
                       : "var(--text-primary)",
                   }}
-                  onClick={() =>
+                  onClick={() => {
+                    if (list.id === ui.currentListId) return;
+                    if (confirmDiscardChanges && !confirmDiscardChanges()) return;
                     setUi((previous) => ({
                       ...previous,
                       currentListId: list.id,
-                    }))
-                  }
+                    }));
+                  }}
                 >
                   <div style={{ minWidth: 0 }}>
                     <div
