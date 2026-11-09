@@ -2,14 +2,18 @@ import React, { useState, useEffect, useRef } from "react";
 import { CSVLink } from "react-csv";
 import "./Sessions.css";
 import { getApiBase, getAuthHeaders, handleUnauthorized } from '../../utils/api';
+import { useUnsavedChanges } from "../../hooks/useUnsavedChanges";
 
 const API_URL = getApiBase();
 
 const defaultColumns = [
-  { key: "startTime", name: "Session start time" },
   { key: "user", name: "User who made it" },
+  { key: "startTime", name: "Session start time" },
   { key: "name", name: "Name of session" },
+  { key: "description", name: "Details"},
 ];
+
+
 
 const Sessions = () => {
   const [columns, setColumns] = useState(defaultColumns);
@@ -22,16 +26,19 @@ const Sessions = () => {
   const [saving, setSaving] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false });
   const [deleteSessionModal, setDeleteSessionModal] = useState({ open: false });
+  const [unsavedChanges, setUnsavedChanges] = useState(false); 
 
   const inputRef = useRef(null);
+
+  useUnsavedChanges(unsavedChanges);
 
   const fetchBoard = async () => {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API_URL}/sessions`, {
+      const res = await fetch(`${API_URL}/sessions/file?key=sessions.csv`, {
         method: "GET",
-        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        headers: getAuthHeaders(),
       });
 
       if (res.status === 401) {
@@ -40,21 +47,47 @@ const Sessions = () => {
       }
 
       if (!res.ok) throw new Error("Failed to load sessions");
+      
+      const board = {
+        columns:[],
+        data:{},
+      };
+      const csvText = await res.text();
+      const rows = parseCSV(csvText);
 
-      const board = await res.json();
+      rows[0].map((rowName) => {
+        let key = "";
+        switch(rowName){
+          case "User who made it":key="user";break;
+          case "Session start time":key="startTime";break;
+          case "Name of session":key="name";break;
+          case "Details":key="description";break;
+          default:{// create a simple key from the name
+            const baseKey = rowName.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "").toLowerCase();
+            key = baseKey || `col_${Date.now()}`;
+            // ensure unique key
+            let suffix = 1;
+            const existingKeys = new Set(columns.map((c) => c.key));
+            while (existingKeys.has(key)) {
+              key = `${baseKey}_${suffix}`;
+              suffix += 1;
+            }
+            break;
+          }
+        }
+        board.columns.push({key:key, name:rowName})
+      })
 
+      board.data = rows.slice(1).map(row => {                                        
+        const obj = {};                                                              
+        board.columns.forEach((col, i) => {                                          
+          obj[col.key] = row[i]; // optionally convert types here        
+        });                                                                          
+        return obj;                                                                  
+      });      
       // initialize columns from server if provided, otherwise use defaults
       const initialColumns = board.columns && board.columns.length ? board.columns : defaultColumns;
-
-      // swap startTime and user positions
-      const swappedColumns = [...initialColumns];
-      const iStart = swappedColumns.findIndex((c) => c.key === "startTime");
-      const iUser = swappedColumns.findIndex((c) => c.key === "user");
-      if (iStart !== -1 && iUser !== -1) {
-        [swappedColumns[iStart], swappedColumns[iUser]] = [swappedColumns[iUser], swappedColumns[iStart]];
-      }
-
-      setColumns(swappedColumns);
+      setColumns(initialColumns);
 
       const normalizedData = (board.data || []).map((row) => ({
         ...row,
@@ -63,11 +96,9 @@ const Sessions = () => {
         name: row.name || "",
         description: row.description || "",
       }));
-
       setData(normalizedData);
 
-      // persist swapped column order back to server so UI and backend match
-      await saveBoard(swappedColumns, normalizedData);
+      await saveBoard(initialColumns, normalizedData);
     } catch (err) {
       console.error("Failed to load sessions", err);
     } finally {
@@ -75,16 +106,68 @@ const Sessions = () => {
     }
   };
 
+  const createCSVFile = (nextColumns, nextData, filename = 'sessions.csv') => {
+    const columns = nextColumns.map((column) => 
+      column.name || "",
+    );
+    const keys = nextColumns.map((column) => 
+      column.key || "",
+    );
+    const keysRow = columns.join(',');
+    const dataRows = nextData.map(row => 
+      keys.map(col => {
+        const cellValue = row[col] !== undefined && row[col] !== null ? String(row[col]) : '';
+        if (cellValue.includes(',') || cellValue.includes('"') || cellValue.includes('\n')) {
+          return `"${cellValue.replace(/"/g, '""')}"`;
+        }
+        return cellValue;
+      }).join(',')
+    );
+    // 3. Combine into a raw string
+    const csvContent = [keysRow, ...dataRows].join('\n');
+    // 4. Return a File object
+    return new File([csvContent], filename, { type: 'text/csv' });
+  }
+
+  function parseCSV(text) {                                                      
+    const rows = [];                                                             
+    let row = [];                                                                
+    let field = '';                                                              
+    let inQuotes = false;                                                        
+                                                                                
+    for (let i = 0; i < text.length; i++) {                                      
+      const char = text[i];                                                      
+      const next = text[i + 1];                                                  
+                                                                                
+      if (inQuotes) {                                                            
+        if (char === '"' && next === '"') { field += '"'; i++; } // escaped ""   
+        else if (char === '"') inQuotes = false;                                 
+        else field += char;                                                      
+      } else {                                                                   
+        if (char === '"') inQuotes = true;                                       
+        else if (char === ',') { row.push(field); field = ''; }                  
+        else if (char === '\n' || char === '\r') {                               
+          if (char === '\r' && next === '\n') i++; // skip \r\n                  
+          row.push(field);                                                       
+          rows.push(row);                                                        
+          row = []; field = '';                                                  
+        } else field += char;                                                    
+      }                                                                          
+    }                                                                            
+    if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }     
+    return rows;                                                                 
+  }      
+
   const saveBoard = async (nextColumns, nextData) => {
   try {
     setSaving(true);
+    const file = createCSVFile(nextColumns, nextData);
+    const formData = new FormData();
+    formData.append("file", file);
     const res = await fetch(`${API_URL}/sessions`, {
       method: "PUT",
-      headers: getAuthHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({
-        columns: nextColumns,
-        data: nextData,
-      }),
+      headers: getAuthHeaders(),
+      body: formData,
     });
 
     if (!res.ok) throw new Error("Failed to save sessions");
@@ -92,6 +175,7 @@ const Sessions = () => {
     console.error("Failed to save sessions", err);
   } finally {
     setSaving(false);
+    setUnsavedChanges(false);
   }
 };
 
@@ -122,7 +206,8 @@ const Sessions = () => {
 
     const nextData = [...data, newSession];
     setData(nextData);
-    await saveBoard(columns, nextData);
+    setUnsavedChanges(true);
+    // await saveBoard(columns, nextData);
   };
 
   const handleAddColumn = async () => {
@@ -152,8 +237,9 @@ const Sessions = () => {
 
     setColumns(nextColumns);
     setData(nextData);
+    setUnsavedChanges(true);
 
-    await saveBoard(nextColumns, nextData);
+    // await saveBoard(nextColumns, nextData);
   };
 
   const handleDeleteColumn = async (colKey) => {
@@ -170,7 +256,8 @@ const Sessions = () => {
     setData(nextData);
     setEditingCell(null);
     setDeleteModal({ open: false });
-    await saveBoard(nextColumns, nextData);
+    setUnsavedChanges(true);
+    // await saveBoard(nextColumns, nextData);
   };
 
   const handleDeleteSession = async (rowIndex) => {
@@ -180,7 +267,8 @@ const Sessions = () => {
     setData(nextData);
     setEditingCell(null);
     setDeleteSessionModal({ open: false });
-    await saveBoard(columns, nextData);
+    setUnsavedChanges(true);
+    // await saveBoard(columns, nextData);
   };
 
   const openDescription = (rowIndex) => {
@@ -197,7 +285,9 @@ const Sessions = () => {
         description: modalDescription,
       };
       setData(newData);
-      await saveBoard(columns, newData);
+      console.log(data);
+      console.log(columns);
+      // await saveBoard(columns, newData);
       // stay in view mode, keep modal open
       setDescriptionEditing(false);
       return;
@@ -226,12 +316,24 @@ const Sessions = () => {
 
   const handleBlur = async () => {
     setEditingCell(null);
-    await saveBoard(columns, data);
+    setUnsavedChanges(true);
+    // await saveBoard(columns, data);
   };
 
   const handleKeyDown = async (e) => {
     if (e.key === "Enter") {
       setEditingCell(null);
+      setUnsavedChanges(true);
+      // await saveBoard(columns, data);
+    }
+  };
+
+  const handleSaveData = async () => {
+    if (
+      window.confirm(
+        "Are you sure you want to overwrite session data? This cannot be undone.",
+      )
+    ) {
       await saveBoard(columns, data);
     }
   };
@@ -297,6 +399,12 @@ const Sessions = () => {
           {data.length > 0 && (
             <button className="btn btn-danger" onClick={handleClearData} style={{ backgroundColor: 'var(--warning-attention)', color: 'var(--background-base)' }}>
               Clear Data
+            </button>
+          )}
+
+          {data.length > 0 && (
+            <button className="btn btn-primary" onClick={handleSaveData} style={{ marginLeft: "8px", backgroundColor: 'var(--surface-layer)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)'  }}>
+              Save Data
             </button>
           )}
 
@@ -544,7 +652,7 @@ const Sessions = () => {
                         ) : col.key === "name" ? (
                           <div className="session-name-cell">
                             <span>{row.name || "(no name)"}</span>
-                            <button
+                            {/* <button
                               className="btn btn-secondary btn-details"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -553,7 +661,7 @@ const Sessions = () => {
                               style={{ backgroundColor: 'var(--background-base)', color: 'var(--text-primary)', border: '1px solid var(--primary-accent)' }}
                             >
                               Details
-                            </button>
+                            </button> */}
                           </div>
                         ) : (
                           row[col.key]
