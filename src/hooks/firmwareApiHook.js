@@ -1,5 +1,6 @@
-const firmwareApiUrl = import.meta.env.VITE_FIRMWARE_API;
-const s3BucketUrl = import.meta.env.VITE_S3_BUCKET_URL || firmwareApiUrl;
+import { getApiBase, getAuthHeaders } from '../utils/api';
+
+const firmwareApiUrl = `${getApiBase()}/firmware`;
 
 const uploadFirmware = async (firmware, deviceId, configFile = null) => {
   if (!firmware) {
@@ -22,10 +23,11 @@ const uploadFirmware = async (firmware, deviceId, configFile = null) => {
   }
 
   try {
-    const response = await fetch(`${s3BucketUrl}/upload`, {
+    const response = await fetch(`${firmwareApiUrl}/upload`, {
       method: 'POST',
       body: formData,
       headers: {
+        ...getAuthHeaders(),
         'X-Device-Type': 'canedge3'
       }
     });
@@ -61,9 +63,10 @@ const checkFirmwareStatus = async (deviceId) => {
   }
   
   try {
-    const response = await fetch(`${s3BucketUrl}/status/${deviceId}`, {
+    const response = await fetch(`${firmwareApiUrl}/status/${deviceId}`, {
       method: 'GET',
       headers: {
+        ...getAuthHeaders(),
         'X-Device-Type': 'canedge3'
       }
     });
